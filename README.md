@@ -1,68 +1,68 @@
 # todo.open
 
-![Go Version](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go)
-![Status](https://img.shields.io/badge/status-MVP-blue)
-![Storage](https://img.shields.io/badge/storage-JSONL-6f42c1)
+[![Go Version](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go)](https://go.dev)
+[![Status](https://img.shields.io/badge/status-MVP-blue)](https://github.com/justEstif/todo-open/blob/main/docs/mvp.md)
+[![Storage](https://img.shields.io/badge/storage-JSONL-6f42c1)](https://github.com/justEstif/todo-open/blob/main/docs/schema.md)
 
-A **server-first, local-first** task tool built in Go.
+**A local-first task platform where you own the data, the sync strategy, and the interface.**
 
-- ✅ Portable local data (JSONL)
-- ✅ Clear server-side domain rules
-- ✅ CLI + web flow today, more clients later
+Most task apps make the same tradeoff: great UX but your data lives on their servers, in their format, gone if they shut down. Plain-text systems like todo.txt flip this but sacrifice usability. todo.open does neither.
 
-## TL;DR — why this exists
-
-todo.open exists to avoid the usual tradeoff: **either convenient apps with locked-in data**, or **portable plain-text systems with weak UX**.
-
-The project aims to give you both:
-- local, user-owned task data (`tasks.jsonl`)
-- one canonical server contract for all clients
-- extensibility (views/sync adapters) without changing core task semantics
-
-For the full rationale and MVP scope, see **[docs/mvp.md](docs/mvp.md)**.
+The core is a Go server with a stable HTTP API and a portable JSONL data model. You run it locally. You pick how to sync (git, rsync, a custom adapter). You pick how to view your data (the built-in web UI, a TUI, `vd`, `miller`, anything that reads JSON). The server contract stays stable — clients and adapters are just plugins.
 
 ---
 
-## 30-second demo
+## How it works
 
-```bash
-# 1) Start local web app (starts server + opens browser)
-todoopen web
+```mermaid
+flowchart TD
+    subgraph Clients["Your Clients"]
+        CLI[CLI]
+        WEB[Web UI]
+        TUI[TUI]
+        EXT[Integrations]
+    end
 
-# 2) In another terminal, create a task via CLI
-todoopen task create -title "Ship README polish"
+    subgraph Server["todo.open Server"]
+        API[HTTP API]
+        CORE[Core Domain]
+        STORE[JSONL Store]
+        SYNC[Sync Layer]
+    end
 
-# 3) List tasks
-todoopen task list
+    subgraph Remote["Remote (your choice)"]
+        GIT[git repo]
+        S3[S3 / object store]
+        CUSTOM[custom adapter]
+    end
+
+    CLI & WEB & TUI & EXT -->|loopback HTTP| API
+    API --> CORE
+    CORE --> STORE
+    CORE --> SYNC
+    SYNC <-->|Push / Pull adapter| GIT & S3 & CUSTOM
 ```
 
-If your server runs on a custom address, add `-server http://127.0.0.1:8080` to task commands.
+- **Server-first**: one canonical API, all clients are just consumers
+- **Local-first**: runs entirely on your machine, no cloud dependency
+- **Your data**: tasks stored as plain JSONL — readable, portable, version-controllable
+- **Pluggable sync**: implement a `Push`/`Pull` adapter to sync anywhere
+- **Pluggable views**: implement a `RenderTasks` adapter to view your tasks in any tool
 
 ---
 
-## Install
+## Quick start
 
-### Option A: mise (recommended)
+### Install via mise (recommended)
 
-Install globally with the mise Go backend:
-
-```bash
+```sh
 mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest
 todoopen --help
 ```
 
-Project-local install (no global binary):
+### Build from source
 
-```bash
-mise use go:github.com/justEstif/todo-open/cmd/todoopen@latest
-mise x -- todoopen --help
-```
-
-### Option B: build from source with Go
-
-Prerequisite: **Go 1.26+**
-
-```bash
+```sh
 git clone https://github.com/justEstif/todo-open.git
 cd todo-open
 go build ./cmd/todoopen
@@ -71,42 +71,100 @@ go build ./cmd/todoopen
 
 ---
 
-## Quick usage
+## Usage
 
-```bash
-todoopen --help
+```sh
+# Start the local server and open the web UI
 todoopen web
-todoopen task create -title "My first task"
+
+# In another terminal — manage tasks via CLI
+todoopen task create -title "Write release notes"
 todoopen task list
+
+# Inspect which adapters are active
+todoopen adapters
 ```
 
-Useful web flags:
+Useful flags for `todoopen web`:
 
-- `--addr 127.0.0.1:8080` set local bind address
-- `--no-open` start without opening browser
-- `--server http://127.0.0.1:8080` attach to existing server
+| Flag                    | Description                          |
+| ----------------------- | ------------------------------------ |
+| `--addr 127.0.0.1:8080` | Custom bind address                  |
+| `--no-open`             | Start server without opening browser |
+| `--server http://...`   | Attach CLI to a running server       |
 
-Alias:
+---
 
-```bash
-todoopen gui
+## Bring your own sync
+
+Sync is opt-in. The default adapter is a no-op — your tasks stay local until you wire something up.
+
+To add sync, implement the adapter interface:
+
+```go
+type Adapter interface {
+    Name() string
+    Push(ctx context.Context, tasks []core.Task) error
+    Pull(ctx context.Context) ([]core.Task, error)
+}
 ```
 
-Run server directly from source checkout:
+Then register it at startup and enable it in `.todoopen/adapters.json`:
 
-```bash
-go run ./cmd/todoopen-server
+```json
+{
+  "enabled_sync_adapters": ["git"],
+  "sync_settings": {
+    "git": { "remote": "origin", "branch": "tasks" }
+  }
+}
 ```
 
-Then open `http://127.0.0.1:8080/`.
+Example adapters you could build or contribute:
+
+- **git** — push/pull your `tasks.jsonl` to a repo branch
+- **rsync** — sync to a remote machine over SSH
+- **S3** — backup to object storage
+- **custom** — anything with a `Push`/`Pull` contract
+
+---
+
+## Bring your own view
+
+The built-in web UI is one option. Because tasks are JSONL, you can pipe them into any tool:
+
+```sh
+# View with vd (visidata)
+todoopen task list --json | vd -f json
+
+# Filter and query with miller
+todoopen task list --json | mlr --json filter '$status == "open"'
+
+# Or build a TUI adapter using the view interface
+type Adapter interface {
+    Name() string
+    RenderTasks(ctx context.Context, tasks []core.Task) ([]byte, error)
+}
+```
+
+---
+
+## Roadmap
+
+- [x] Local HTTP API + core domain
+- [x] CLI client
+- [x] Web UI
+- [x] Pluggable sync and view adapter contracts
+- [ ] Git sync adapter (reference implementation)
+- [ ] TUI client
+- [ ] Packaged binaries (`.deb`, `.apk`, `.exe`, `.dmg`)
+- [ ] Desktop app
 
 ---
 
 ## Contributing
 
-Use pinned toolchain/tasks via `mise.toml`:
-
-```bash
+```sh
 git clone https://github.com/justEstif/todo-open.git
 cd todo-open
 mise install
@@ -114,32 +172,25 @@ mise run build
 mise run test
 ```
 
-Common checks:
+Common tasks:
 
-```bash
-mise run fmt
-mise run vet
-mise run test
-mise run build
-```
-
-Adapter runtime inspection:
-
-```bash
-todoopen adapters
-todoopen adapters --json
+```sh
+mise run fmt    # format
+mise run vet    # lint
+mise run test   # test
+mise run build  # build
 ```
 
 ---
 
 ## Docs
 
-Deep-dive docs in [`docs/`](docs):
-
-- [Architecture](docs/architecture.md)
-- [API architecture](docs/api.md)
-- [MVP scope](docs/mvp.md)
-- [Canonical schema](docs/schema.md)
-- [Sync decision](docs/sync.md)
-- [Testing and release strategy](docs/testing.md)
-- [Coding standards](docs/coding-standards.md)
+| Doc                                          | Description                     |
+| -------------------------------------------- | ------------------------------- |
+| [Architecture](docs/architecture.md)         | System design and principles    |
+| [Adapters](docs/adapters.md)                 | View and sync adapter contracts |
+| [API](docs/api.md)                           | HTTP API reference              |
+| [Schema](docs/schema.md)                     | JSONL task schema               |
+| [Sync](docs/sync.md)                         | Sync design decisions           |
+| [Testing](docs/testing.md)                   | Test and release strategy       |
+| [Coding Standards](docs/coding-standards.md) | Code conventions                |
