@@ -19,6 +19,9 @@ func NewTaskRepo() *TaskRepo {
 func (r *TaskRepo) Create(_ context.Context, task core.Task) (core.Task, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if _, exists := r.tasks[task.ID]; exists {
+		return core.Task{}, core.ErrInvalidInput
+	}
 	r.tasks[task.ID] = task
 	return task, nil
 }

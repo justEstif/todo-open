@@ -245,99 +245,114 @@ func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 	return 0
 }
 
+type taskSubcommand func(args []string, stdout io.Writer, stderr io.Writer) int
+
 func runTask(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: todoopen task <create|list|get|update|delete> [flags]")
 		return 2
 	}
 
-	subcmd := args[0]
-	subArgs := args[1:]
-	switch subcmd {
-	case "create":
-		fs := flag.NewFlagSet("task create", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
-		title := fs.String("title", "", "task title")
-		if err := fs.Parse(subArgs); err != nil {
-			return 2
-		}
-		task, err := apiclient.New(*server).CreateTask(*title)
-		if err != nil {
-			fmt.Fprintf(stderr, "create failed: %v\n", err)
-			return 1
-		}
-		printJSON(stdout, task)
-		return 0
+	commands := map[string]taskSubcommand{
+		"create": runTaskCreate,
+		"list":   runTaskList,
+		"get":    runTaskGet,
+		"update": runTaskUpdate,
+		"delete": runTaskDelete,
+	}
 
-	case "list":
-		fs := flag.NewFlagSet("task list", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
-		if err := fs.Parse(subArgs); err != nil {
-			return 2
-		}
-		tasks, err := apiclient.New(*server).ListTasks()
-		if err != nil {
-			fmt.Fprintf(stderr, "list failed: %v\n", err)
-			return 1
-		}
-		for _, task := range tasks {
-			fmt.Fprintf(stdout, "%s\t%s\t%s\n", task.ID, task.Status, task.Title)
-		}
-		return 0
-
-	case "get":
-		fs := flag.NewFlagSet("task get", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
-		id := fs.String("id", "", "task id")
-		if err := fs.Parse(subArgs); err != nil {
-			return 2
-		}
-		task, err := apiclient.New(*server).GetTask(*id)
-		if err != nil {
-			fmt.Fprintf(stderr, "get failed: %v\n", err)
-			return 1
-		}
-		printJSON(stdout, task)
-		return 0
-
-	case "update":
-		fs := flag.NewFlagSet("task update", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
-		id := fs.String("id", "", "task id")
-		title := fs.String("title", "", "task title")
-		if err := fs.Parse(subArgs); err != nil {
-			return 2
-		}
-		task, err := apiclient.New(*server).UpdateTask(*id, *title)
-		if err != nil {
-			fmt.Fprintf(stderr, "update failed: %v\n", err)
-			return 1
-		}
-		printJSON(stdout, task)
-		return 0
-
-	case "delete":
-		fs := flag.NewFlagSet("task delete", flag.ContinueOnError)
-		fs.SetOutput(stderr)
-		server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
-		id := fs.String("id", "", "task id")
-		if err := fs.Parse(subArgs); err != nil {
-			return 2
-		}
-		if err := apiclient.New(*server).DeleteTask(*id); err != nil {
-			fmt.Fprintf(stderr, "delete failed: %v\n", err)
-			return 1
-		}
-		fmt.Fprintln(stdout, "deleted")
-		return 0
-	default:
-		fmt.Fprintf(stderr, "unknown task subcommand %q\n", subcmd)
+	handler, ok := commands[args[0]]
+	if !ok {
+		fmt.Fprintf(stderr, "unknown task subcommand %q\n", args[0])
 		return 2
 	}
+	return handler(args[1:], stdout, stderr)
+}
+
+func runTaskCreate(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task create", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
+	title := fs.String("title", "", "task title")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	task, err := apiclient.New(*server).CreateTask(*title)
+	if err != nil {
+		fmt.Fprintf(stderr, "create failed: %v\n", err)
+		return 1
+	}
+	printJSON(stdout, task)
+	return 0
+}
+
+func runTaskList(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	tasks, err := apiclient.New(*server).ListTasks()
+	if err != nil {
+		fmt.Fprintf(stderr, "list failed: %v\n", err)
+		return 1
+	}
+	for _, task := range tasks {
+		fmt.Fprintf(stdout, "%s\t%s\t%s\n", task.ID, task.Status, task.Title)
+	}
+	return 0
+}
+
+func runTaskGet(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task get", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
+	id := fs.String("id", "", "task id")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	task, err := apiclient.New(*server).GetTask(*id)
+	if err != nil {
+		fmt.Fprintf(stderr, "get failed: %v\n", err)
+		return 1
+	}
+	printJSON(stdout, task)
+	return 0
+}
+
+func runTaskUpdate(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task update", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
+	id := fs.String("id", "", "task id")
+	title := fs.String("title", "", "task title")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	task, err := apiclient.New(*server).UpdateTask(*id, *title)
+	if err != nil {
+		fmt.Fprintf(stderr, "update failed: %v\n", err)
+		return 1
+	}
+	printJSON(stdout, task)
+	return 0
+}
+
+func runTaskDelete(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("task delete", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	server := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
+	id := fs.String("id", "", "task id")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if err := apiclient.New(*server).DeleteTask(*id); err != nil {
+		fmt.Fprintf(stderr, "delete failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "deleted")
+	return 0
 }
 
 func printJSON(w io.Writer, v any) {

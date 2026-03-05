@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justEstif/todo-open/internal/adapters"
 	"github.com/justEstif/todo-open/internal/api"
-	"github.com/justEstif/todo-open/internal/api/handlers"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -16,12 +16,12 @@ import (
 func TestAdaptersStatusEndpoint(t *testing.T) {
 	repo := memory.NewTaskRepo()
 	svc := core.NewService(repo, time.Now, func() string { return "task_1" })
-	runtime := handlers.AdapterRuntimeResponse{
-		Config: handlers.AdapterConfigResponse{
+	runtime := adapters.Runtime{
+		Config: adapters.Config{
 			EnabledViews:        []string{"json"},
 			EnabledSyncAdapters: []string{"noop"},
 		},
-		Status: []handlers.AdapterStatusResponse{
+		Status: []adapters.Status{
 			{Kind: "sync", Name: "noop", Enabled: true, Healthy: true},
 			{Kind: "view", Name: "json", Enabled: true, Healthy: true},
 		},
@@ -39,7 +39,7 @@ func TestAdaptersStatusEndpoint(t *testing.T) {
 		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
-	var out handlers.AdapterRuntimeResponse
+	var out adapters.Runtime
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}

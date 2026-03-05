@@ -8,34 +8,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/justEstif/todo-open/internal/adapters"
 	syncadapter "github.com/justEstif/todo-open/internal/sync"
 	"github.com/justEstif/todo-open/internal/view"
 )
 
-// AdapterConfig captures user-facing adapter configuration.
-type AdapterConfig struct {
-	EnabledViews        []string                  `json:"enabled_views"`
-	EnabledSyncAdapters []string                  `json:"enabled_sync_adapters"`
-	ViewSettings        map[string]map[string]any `json:"view_settings,omitempty"`
-	SyncSettings        map[string]map[string]any `json:"sync_settings,omitempty"`
-}
-
-// AdapterStatus represents runtime visibility for one adapter.
-type AdapterStatus struct {
-	Kind    string `json:"kind"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
-	Healthy bool   `json:"healthy"`
-	Message string `json:"message,omitempty"`
-}
-
-// AdapterRuntime represents validated adapter configuration and startup health.
-type AdapterRuntime struct {
-	Config AdapterConfig   `json:"config"`
-	Status []AdapterStatus `json:"status"`
-	Ready  bool            `json:"ready"`
-	Errors []string        `json:"errors,omitempty"`
-}
+// Re-export canonical adapter runtime/config types for app consumers.
+type AdapterConfig = adapters.Config
+type AdapterStatus = adapters.Status
+type AdapterRuntime = adapters.Runtime
 
 func DefaultAdapterConfig() AdapterConfig {
 	return AdapterConfig{

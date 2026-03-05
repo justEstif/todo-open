@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justEstif/todo-open/internal/adapters"
 	"github.com/justEstif/todo-open/internal/api"
-	"github.com/justEstif/todo-open/internal/api/handlers"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -17,7 +17,7 @@ import (
 func TestTaskCRUDHappyPath(t *testing.T) {
 	repo := memory.NewTaskRepo()
 	svc := core.NewService(repo, func() time.Time { return time.Date(2026, 3, 5, 20, 0, 0, 0, time.UTC) }, func() string { return "task_1" })
-	ts := httptest.NewServer(api.NewRouter(svc, handlers.AdapterRuntimeResponse{}))
+	ts := httptest.NewServer(api.NewRouter(svc, adapters.Runtime{}))
 	t.Cleanup(ts.Close)
 
 	created := doJSON(t, ts.URL, http.MethodPost, "/v1/tasks", map[string]string{"title": "first task"}, http.StatusCreated)
@@ -60,7 +60,7 @@ func TestTaskCRUDHappyPath(t *testing.T) {
 func TestTaskValidationFailures(t *testing.T) {
 	repo := memory.NewTaskRepo()
 	svc := core.NewService(repo, time.Now, func() string { return "task_1" })
-	ts := httptest.NewServer(api.NewRouter(svc, handlers.AdapterRuntimeResponse{}))
+	ts := httptest.NewServer(api.NewRouter(svc, adapters.Runtime{}))
 	t.Cleanup(ts.Close)
 
 	badCreate := doJSON(t, ts.URL, http.MethodPost, "/v1/tasks", map[string]string{"title": "  "}, http.StatusBadRequest)

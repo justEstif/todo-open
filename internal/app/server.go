@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/justEstif/todo-open/internal/api"
-	"github.com/justEstif/todo-open/internal/api/handlers"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/jsonl"
 	"github.com/justEstif/todo-open/internal/store/memory"
@@ -47,18 +46,8 @@ func NewServer(addr string) (*http.Server, error) {
 	taskService := core.NewService(repo, time.Now, nil)
 
 	return &http.Server{
-		Addr: addr,
-		Handler: api.NewRouter(taskService, handlers.AdapterRuntimeResponse{
-			Config: handlers.AdapterConfigResponse{
-				EnabledViews:        runtime.Config.EnabledViews,
-				EnabledSyncAdapters: runtime.Config.EnabledSyncAdapters,
-				ViewSettings:        runtime.Config.ViewSettings,
-				SyncSettings:        runtime.Config.SyncSettings,
-			},
-			Status: toAdapterStatusResponse(runtime.Status),
-			Ready:  runtime.Ready,
-			Errors: runtime.Errors,
-		}),
+		Addr:    addr,
+		Handler: api.NewRouter(taskService, runtime),
 	}, nil
 }
 
@@ -78,18 +67,4 @@ func resolveWorkspaceRoot() (string, error) {
 		return "", fmt.Errorf("resolve workspace root: %w", err)
 	}
 	return root, nil
-}
-
-func toAdapterStatusResponse(statuses []AdapterStatus) []handlers.AdapterStatusResponse {
-	out := make([]handlers.AdapterStatusResponse, 0, len(statuses))
-	for _, status := range statuses {
-		out = append(out, handlers.AdapterStatusResponse{
-			Kind:    status.Kind,
-			Name:    status.Name,
-			Enabled: status.Enabled,
-			Healthy: status.Healthy,
-			Message: status.Message,
-		})
-	}
-	return out
 }
