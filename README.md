@@ -10,6 +10,17 @@ A **server-first, local-first** task tool built in Go.
 - ✅ Clear server-side domain rules
 - ✅ CLI + web flow today, more clients later
 
+## TL;DR — why this exists
+
+todo.open exists to avoid the usual tradeoff: **either convenient apps with locked-in data**, or **portable plain-text systems with weak UX**.
+
+The project aims to give you both:
+- local, user-owned task data (`tasks.jsonl`)
+- one canonical server contract for all clients
+- extensibility (views/sync adapters) without changing core task semantics
+
+For the full rationale and MVP scope, see **[docs/mvp.md](docs/mvp.md)**.
+
 ---
 
 ## 30-second demo
