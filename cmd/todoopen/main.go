@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	apiclient "github.com/ebeyene/todo-open/internal/client/api"
+	apiclient "github.com/justEstif/todo-open/internal/client/api"
 )
 
 func main() {

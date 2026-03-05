@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ebeyene/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/core"
 )
 
 const (

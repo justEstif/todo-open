@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ebeyene/todo-open/internal/api"
-	"github.com/ebeyene/todo-open/internal/core"
-	"github.com/ebeyene/todo-open/internal/store/memory"
+	"github.com/justEstif/todo-open/internal/api"
+	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/store/memory"
 )
 
 func TestTaskCRUDHappyPath(t *testing.T) {

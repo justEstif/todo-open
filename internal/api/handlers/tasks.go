@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/ebeyene/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/core"
 )
 
 type TaskHandler struct {

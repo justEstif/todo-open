@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ebeyene/todo-open/internal/app"
+	"github.com/justEstif/todo-open/internal/app"
 )
 
 func main() {

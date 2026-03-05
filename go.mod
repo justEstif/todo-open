@@ -1,3 +1,3 @@
-module github.com/ebeyene/todo-open
+module github.com/justEstif/todo-open
 
 go 1.26

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ebeyene/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/core"
 )
 
 type TaskRepo struct {

@@ -17,13 +17,13 @@ Deliver the first HTTP API slice for task CRUD aligned to api.md contracts.\n\n#
 - Expanded the core task service and domain model for CRUD + soft delete in .
 - Added an in-memory repository implementation and updated repository contracts (, ).
 - Added integration tests for happy path CRUD and key validation/not-found failures in .
-- Verified with ?   	github.com/ebeyene/todo-open/cmd/todoopen	[no test files]
-?   	github.com/ebeyene/todo-open/cmd/todoopen-server	[no test files]
-ok  	github.com/ebeyene/todo-open/internal/api	(cached)
-?   	github.com/ebeyene/todo-open/internal/api/handlers	[no test files]
-?   	github.com/ebeyene/todo-open/internal/app	[no test files]
-?   	github.com/ebeyene/todo-open/internal/client/api	[no test files]
-?   	github.com/ebeyene/todo-open/internal/core	[no test files]
-?   	github.com/ebeyene/todo-open/internal/store	[no test files]
-?   	github.com/ebeyene/todo-open/internal/store/jsonl	[no test files]
-?   	github.com/ebeyene/todo-open/internal/store/memory	[no test files].
+- Verified with ?   	github.com/justEstif/todo-open/cmd/todoopen	[no test files]
+?   	github.com/justEstif/todo-open/cmd/todoopen-server	[no test files]
+ok  	github.com/justEstif/todo-open/internal/api	(cached)
+?   	github.com/justEstif/todo-open/internal/api/handlers	[no test files]
+?   	github.com/justEstif/todo-open/internal/app	[no test files]
+?   	github.com/justEstif/todo-open/internal/client/api	[no test files]
+?   	github.com/justEstif/todo-open/internal/core	[no test files]
+?   	github.com/justEstif/todo-open/internal/store	[no test files]
+?   	github.com/justEstif/todo-open/internal/store/jsonl	[no test files]
+?   	github.com/justEstif/todo-open/internal/store/memory	[no test files].

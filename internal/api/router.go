@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/ebeyene/todo-open/internal/api/handlers"
-	"github.com/ebeyene/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/api/handlers"
+	"github.com/justEstif/todo-open/internal/core"
 )
 
 func NewRouter(taskService core.TaskService) http.Handler {

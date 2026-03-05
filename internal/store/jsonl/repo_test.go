@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ebeyene/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/core"
 )
 
 func TestTaskRepoCRUDAndMetaBootstrap(t *testing.T) {

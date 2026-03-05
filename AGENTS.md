@@ -5,7 +5,7 @@ Guidance for coding agents working in `todo-open`.
 ## Project Snapshot
 
 - Language: Go (`go 1.26` in `go.mod`)
-- Module: `github.com/ebeyene/todo-open`
+- Module: `github.com/justEstif/todo-open`
 - Architecture: server-first, local-first task system
 - Entrypoints:
   - `cmd/todoopen-server` (HTTP server)
