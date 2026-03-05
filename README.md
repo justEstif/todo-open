@@ -112,6 +112,13 @@ mise run test
 mise run build
 ```
 
+Adapter runtime inspection:
+
+```bash
+todoopen adapters
+todoopen adapters --json
+```
+
 ---
 
 ## Docs

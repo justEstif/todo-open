@@ -35,6 +35,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runValidate(args[1:], stdout, stderr)
 	case "task":
 		return runTask(args[1:], stdout, stderr)
+	case "adapters":
+		return runAdapters(args[1:], stdout, stderr)
 	case "web", "gui":
 		return runWeb(args[1:], stdout, stderr)
 	default:
@@ -51,6 +53,7 @@ func runHelp(stdout io.Writer) int {
 	fmt.Fprintln(stdout, "  todoopen web [--addr ADDR] [--no-open] # launch web app")
 	fmt.Fprintln(stdout, "  todoopen validate [flags]")
 	fmt.Fprintln(stdout, "  todoopen task <create|list|get|update|delete> [flags]")
+	fmt.Fprintln(stdout, "  todoopen adapters [--config PATH] [--json]")
 	return 0
 }
 
@@ -125,7 +128,11 @@ func runWeb(args []string, stdout io.Writer, stderr io.Writer) int {
 	url := *baseURL
 	if url == "" {
 		url = "http://" + *addr
-		srv := app.NewServer(*addr)
+		srv, err := app.NewServer(*addr)
+		if err != nil {
+			fmt.Fprintf(stderr, "server setup failed: %v\n", err)
+			return 1
+		}
 		go func() {
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				fmt.Fprintf(stderr, "server failed: %v\n", err)
@@ -181,6 +188,61 @@ func openBrowser(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
+}
+
+func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("adapters", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	configPath := fs.String("config", ".todoopen/adapters.json", "path to adapter config file")
+	asJSON := fs.Bool("json", false, "print adapter status as JSON")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	cfg, err := app.LoadAdapterConfig(*configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to load adapter config: %v\n", err)
+		return 1
+	}
+	viewRegistry, err := app.NewViewRegistry()
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to load view adapters: %v\n", err)
+		return 1
+	}
+	syncRegistry, err := app.NewSyncRegistry()
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to load sync adapters: %v\n", err)
+		return 1
+	}
+
+	runtime := app.BuildAdapterRuntime(cfg, viewRegistry, syncRegistry)
+	if *asJSON {
+		printJSON(stdout, runtime)
+	} else {
+		for _, s := range runtime.Status {
+			health := "healthy"
+			if !s.Healthy {
+				health = "unhealthy"
+			}
+			fmt.Fprintf(stdout, "%s\t%s\tenabled=%t\t%s\n", s.Kind, s.Name, s.Enabled, health)
+			if s.Message != "" {
+				fmt.Fprintf(stdout, "  %s\n", s.Message)
+			}
+		}
+		if runtime.Ready {
+			fmt.Fprintln(stdout, "ready=true")
+		} else {
+			fmt.Fprintln(stdout, "ready=false")
+			for _, err := range runtime.Errors {
+				fmt.Fprintf(stdout, "error: %s\n", err)
+			}
+		}
+	}
+
+	if !runtime.Ready {
+		return 1
+	}
+	return 0
 }
 
 func runTask(args []string, stdout io.Writer, stderr io.Writer) int {

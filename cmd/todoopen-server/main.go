@@ -18,7 +18,10 @@ func main() {
 		addr = v
 	}
 
-	srv := app.NewServer(addr)
+	srv, err := app.NewServer(addr)
+	if err != nil {
+		log.Fatalf("server setup failed: %v", err)
+	}
 	log.Printf("todo.open server starting on %s", addr)
 
 	go func() {
