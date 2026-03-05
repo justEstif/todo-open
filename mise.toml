@@ -1,0 +1,10 @@
+[tools]
+go = "1.26"
+
+[tasks.modernize-check]
+description = "Show suggested Go modernizations without applying changes"
+run = "go fix -diff ./..."
+
+[tasks.modernize]
+description = "Apply Go modernizer fixes"
+run = "go fix ./..."

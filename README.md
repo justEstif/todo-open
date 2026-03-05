@@ -21,6 +21,7 @@ All strategy and planning docs live in [`docs/`](docs):
 - [Canonical schema](docs/schema.md)
 - [Sync decision](docs/sync.md)
 - [Testing and release strategy](docs/testing.md)
+- [Coding standards](docs/coding-standards.md)
 
 ## Current status
 

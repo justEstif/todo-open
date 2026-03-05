@@ -1,7 +1,7 @@
 ---
 # go-todo-md-gukw
 title: Move strategy docs into docs/ and refresh README
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-03-05T19:40:54Z
