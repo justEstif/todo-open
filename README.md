@@ -8,7 +8,31 @@
 
 Most task apps make the same tradeoff: great UX but your data lives on their servers, in their format, gone if they shut down. Plain-text systems like todo.txt flip this but sacrifice usability. todo.open does neither.
 
-The core is a Go server with a stable HTTP API and a portable JSONL data model. You run it locally. You pick how to sync (git, rsync, a custom adapter). You pick how to view your data (the built-in web UI, a TUI, `vd`, `miller`, anything that reads JSON). The server contract stays stable — clients and adapters are just plugins.
+The core is a Go server with a portable JSONL data model and a versioned HTTP API. You run it locally. Today, the shipped API surface focuses on health checks, task CRUD, and adapter runtime status. Sync execution and reusable view endpoints are defined in docs as planned architecture, not shipped endpoints.
+
+## Current implementation status
+
+Implemented server endpoints:
+
+- `GET /healthz`
+- `GET /v1/adapters`
+- `POST /v1/tasks`
+- `GET /v1/tasks`
+- `GET /v1/tasks/{id}`
+- `PATCH /v1/tasks/{id}`
+- `DELETE /v1/tasks/{id}`
+
+Implemented clients/features:
+
+- CLI client (`cmd/todoopen`) for task CRUD plus local `validate`
+- Built-in web UI served by the same local server
+- Adapter registry/config runtime with built-in `json` view and `noop` sync adapters
+
+Planned (not yet shipped as HTTP endpoints):
+
+- `views` API for reusable server-evaluated views
+- `sync` API for pull/push/conflict workflows
+- Task lifecycle convenience routes like `/complete` and `/archive`
 
 ---
 
@@ -97,7 +121,9 @@ Useful flags for `todoopen web`:
 
 ## Bring your own sync
 
-Sync is opt-in. The default adapter is a no-op — your tasks stay local until you wire something up.
+Sync is opt-in. The default adapter is a no-op, so tasks stay local by default.
+
+The sync adapter interface and registry are implemented, but end-to-end sync execution routes are still roadmap work. Treat this section as extension guidance for contributors, not current end-user functionality.
 
 To add sync, implement the adapter interface:
 
@@ -131,7 +157,7 @@ Example adapters you could build or contribute:
 
 ## Bring your own view
 
-The built-in web UI is one option. Because tasks are JSONL, you can pipe them into any tool:
+The built-in web UI is one option today. Because tasks are JSONL, you can also pipe task output into any tool:
 
 ```sh
 # View with vd (visidata)
@@ -140,7 +166,7 @@ todoopen task list --json | vd -f json
 # Filter and query with miller
 todoopen task list --json | mlr --json filter '$status == "open"'
 
-# Or build a TUI adapter using the view interface
+# Or build a TUI adapter using the view interface (contract available; API integration planned)
 type Adapter interface {
     Name() string
     RenderTasks(ctx context.Context, tasks []core.Task) ([]byte, error)

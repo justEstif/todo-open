@@ -4,38 +4,51 @@ status: accepted
 
 # todo.open Server API Architecture
 
-This document defines the high-level API model for todo.open’s **server-first** architecture.
+This document separates the **implemented HTTP API** from the **planned architecture** so roadmap concepts do not read as shipped behavior.
 
 - The server API is the canonical product boundary.
 - CLI/web/mobile/TUI are all API clients.
-- Core semantics (schema, lifecycle, conflict rules) are enforced server-side.
+- Core semantics are enforced server-side for shipped routes, with additional lifecycle/conflict semantics defined for planned routes.
 
 ---
 
-## 1) API Surfaces
+## 1) Implemented API Surfaces (Current)
 
-## A. Task API (Core Domain)
+### A. Task API (Core Domain)
 
 Purpose: canonical task lifecycle and query surface.
 
-Responsibilities:
+Responsibilities currently implemented:
 
-- Create/read/update/archive tasks
-- Validate against core + extension schema
-- Enforce lifecycle transitions and invariants
-- Expose query/filter/sort/pagination
+- Create/read/update/delete tasks
+- Validate request payload shape and core task constraints
+- Enforce core task invariants
+- Expose list/get primitives
 
-Conceptual endpoints:
+Implemented endpoints:
 
 - `POST /v1/tasks`
 - `GET /v1/tasks/{id}`
 - `GET /v1/tasks`
 - `PATCH /v1/tasks/{id}`
-- `POST /v1/tasks/{id}/complete`
-- `POST /v1/tasks/{id}/archive`
-- `POST /v1/validate`
+- `DELETE /v1/tasks/{id}`
 
-## B. Views API
+### B. Admin/Operations API
+
+Purpose: lightweight operational visibility for local deployment.
+
+Implemented endpoints:
+
+- `GET /healthz`
+- `GET /v1/adapters` (runtime adapter status)
+
+---
+
+## 2) Planned/Conceptual API Surfaces
+
+The following surfaces describe intended architecture and extension direction. They are **not fully implemented as HTTP routes** in the current server.
+
+### A. Views API
 
 Purpose: reusable, server-evaluated views for multiple clients.
 
@@ -53,7 +66,7 @@ Conceptual endpoints:
 - `POST /v1/views/{id}/render`
 - `POST /v1/views/{id}/actions/{actionId}`
 
-## C. Sync API
+### B. Sync API
 
 Purpose: adapter-backed change exchange and conflict handling.
 
@@ -71,21 +84,20 @@ Conceptual endpoints:
 - `GET /v1/sync/conflicts`
 - `POST /v1/sync/conflicts/{id}/resolve`
 
-## D. Admin/Operations API (MVP-light)
-
-Purpose: operational visibility and local deployment control.
+### C. Additional task convenience routes
 
 Conceptual endpoints:
 
-- `GET /healthz`
+- `POST /v1/tasks/{id}/complete`
+- `POST /v1/tasks/{id}/archive`
+- `POST /v1/validate`
 - `GET /readyz`
-- `GET /v1/adapters` (runtime adapter status)
 - `GET /v1/meta`
 - `GET /v1/version`
 
 ---
 
-## 2) Data and Contract Rules
+## 3) Data and Contract Rules
 
 - Canonical task schema: see `schema.md`
 - Extension namespace: `ext.*`
@@ -97,19 +109,19 @@ Conceptual endpoints:
 
 ---
 
-## 3) Client Model
+## 4) Client Model
 
 All clients consume the same server contracts:
 
-- `cmd/todoopen` (CLI client)
-- web/mobile UI
-- TUI and external integrations
+- `cmd/todoopen` (CLI client; shipped)
+- web UI (shipped)
+- mobile/TUI and external integrations (planned/partial)
 
 Clients should not mutate JSONL files directly in server mode.
 
 ---
 
-## 4) Deployment and Transport
+## 5) Deployment and Transport
 
 MVP default:
 
@@ -123,7 +135,7 @@ Later:
 
 ---
 
-## 5) Internal Mapping (Go)
+## 6) Internal Mapping (Go)
 
 High-level package responsibility mapping:
 
@@ -135,7 +147,7 @@ High-level package responsibility mapping:
 
 ---
 
-## 6) Initial Non-Goals
+## 7) Initial Non-Goals
 
 - Real-time collaboration protocol
 - Full enterprise permissions matrix
