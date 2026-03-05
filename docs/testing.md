@@ -129,12 +129,14 @@ On `vX.Y.Z` tag:
 
 Recommended via `mise` tasks (defined in `mise.toml`):
 
+- `mise run mod-tidy-check`
 - `mise run fmt`
 - `mise run vet`
 - `mise run lint`
 - `mise run test`
 - `mise run test-race`
 - `mise run build`
+- `mise run modernize-check`
 - `mise run ci` (full parity with required CI checks)
 
 CI should call the same `mise run ...` tasks so local and PR workflows stay aligned.

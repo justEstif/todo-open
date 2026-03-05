@@ -115,7 +115,6 @@ func (r *TaskRepo) Update(_ context.Context, task core.Task) (core.Task, error) 
 	return task, nil
 }
 
-
 func (r *TaskRepo) withTasksRead(fn func([]core.Task) error) error {
 	if err := r.ensureWorkspace(); err != nil {
 		return err

@@ -1,10 +1,45 @@
 [tools]
 go = "1.26"
 
-[tasks.modernize-check]
+[tasks.fmt]
+description = "Check Go formatting"
+run = "test -z \"$(gofmt -l .)\" || (gofmt -l . && exit 1)"
+
+[tasks.vet]
+description = "Run go vet"
+run = "go vet ./..."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0 run"
+
+[tasks.test]
+description = "Run Go tests"
+run = "go test ./..."
+
+[tasks."test-race"]
+description = "Run tests with race detector and coverage"
+run = "go test ./... -race -coverprofile=coverage.out"
+
+[tasks.build]
+description = "Build CLI and server binaries"
+run = [
+  "go build ./cmd/todoopen-server",
+  "go build ./cmd/todoopen"
+]
+
+[tasks."mod-tidy-check"]
+description = "Verify go.mod/go.sum are tidy"
+run = "go mod tidy -diff"
+
+[tasks."modernize-check"]
 description = "Show suggested Go modernizations without applying changes"
 run = "go fix -diff ./..."
 
 [tasks.modernize]
 description = "Apply Go modernizer fixes"
 run = "go fix ./..."
+
+[tasks.ci]
+description = "Run CI parity checks"
+depends = ["mod-tidy-check", "fmt", "vet", "lint", "test-race", "build", "modernize-check"]
