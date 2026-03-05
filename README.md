@@ -10,30 +10,6 @@ Most task apps make the same tradeoff: great UX but your data lives on their ser
 
 The core is a Go server with a portable JSONL data model and a versioned HTTP API. You run it locally. Today, the shipped API surface focuses on health checks, task CRUD, and adapter runtime status. Sync execution and reusable view endpoints are defined in docs as planned architecture, not shipped endpoints.
 
-## Current implementation status
-
-Implemented server endpoints:
-
-- `GET /healthz`
-- `GET /v1/adapters`
-- `POST /v1/tasks`
-- `GET /v1/tasks`
-- `GET /v1/tasks/{id}`
-- `PATCH /v1/tasks/{id}`
-- `DELETE /v1/tasks/{id}`
-
-Implemented clients/features:
-
-- CLI client (`cmd/todoopen`) for task CRUD plus local `validate`
-- Built-in web UI served by the same local server
-- Adapter registry/config runtime with built-in `json` view and `noop` sync adapters
-
-Planned (not yet shipped as HTTP endpoints):
-
-- `views` API for reusable server-evaluated views
-- `sync` API for pull/push/conflict workflows
-- Task lifecycle convenience routes like `/complete` and `/archive`
-
 ---
 
 ## How it works
