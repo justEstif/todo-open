@@ -53,7 +53,7 @@ func (s *Service) CreateTask(ctx context.Context, title string) (Task, error) {
 		return Task{}, fmt.Errorf("title is required: %w", ErrInvalidInput)
 	}
 	now := s.nowFn().UTC()
-	task := Task{ID: s.idFn(), Title: title, Status: TaskStatusOpen, CreatedAt: now, UpdatedAt: now}
+	task := Task{ID: s.idFn(), Title: title, Status: TaskStatusOpen, CreatedAt: now, UpdatedAt: now, Version: 1}
 	return s.repo.Create(ctx, task)
 }
 
@@ -83,6 +83,7 @@ func (s *Service) UpdateTask(ctx context.Context, id string, title string) (Task
 	}
 	task.Title = title
 	task.UpdatedAt = s.nowFn().UTC()
+	task.Version++
 	return s.repo.Update(ctx, task)
 }
 

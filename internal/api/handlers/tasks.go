@@ -1,27 +1,19 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/ebeyene/todo-open/internal/core"
 )
 
-type TaskService interface {
-	CreateTask(ctx context.Context, title string) (core.Task, error)
-	GetTask(ctx context.Context, id string) (core.Task, error)
-	ListTasks(ctx context.Context) ([]core.Task, error)
-	UpdateTask(ctx context.Context, id string, title string) (core.Task, error)
-	DeleteTask(ctx context.Context, id string) error
-}
-
 type TaskHandler struct {
-	svc TaskService
+	svc core.TaskService
 }
 
-func NewTaskHandler(svc TaskService) *TaskHandler {
+func NewTaskHandler(svc core.TaskService) *TaskHandler {
 	return &TaskHandler{svc: svc}
 }
 
@@ -38,7 +30,7 @@ type errorResponse struct {
 
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var payload taskPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := decodeJSON(r, &payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json", "invalid JSON payload")
 		return
 	}
@@ -72,7 +64,7 @@ func (h *TaskHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var payload taskPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := decodeJSON(r, &payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json", "invalid JSON payload")
 		return
 	}
@@ -91,6 +83,18 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func decodeJSON(r *http.Request, dst any) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("trailing data")
+	}
+	return nil
 }
 
 func writeServiceError(w http.ResponseWriter, err error) {

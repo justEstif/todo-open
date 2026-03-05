@@ -67,6 +67,7 @@ func (r *TaskRepo) Delete(_ context.Context, id string, deletedAt time.Time) err
 	task.DeletedAt = &deletedAt
 	task.Status = core.TaskStatusArchived
 	task.UpdatedAt = deletedAt
+	task.Version++
 	r.tasks[id] = task
 	return nil
 }
