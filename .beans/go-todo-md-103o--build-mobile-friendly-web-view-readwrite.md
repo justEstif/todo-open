@@ -1,15 +1,15 @@
 ---
 # go-todo-md-103o
 title: Build mobile-friendly web view (read/write)
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-03-05T20:56:01Z
-updated_at: 2026-03-05T21:31:32Z
+updated_at: 2026-03-05T21:39:10Z
 parent: go-todo-md-y0ga
 ---
 
-Create the first mobile-friendly web interface that can read and write tasks through the server API.\n\n## Todo\n- [x] Scaffold web client surface for task list/detail/edit\n- [x] Implement responsive mobile-first UI and forms\n- [x] Wire read/write operations to server endpoints\n- [ ] Add basic frontend tests and manual QA checklist
+Create the first mobile-friendly web interface that can read and write tasks through the server API.\n\n## Todo\n- [x] Scaffold web client surface for task list/detail/edit\n- [x] Implement responsive mobile-first UI and forms\n- [x] Wire read/write operations to server endpoints\n- [x] Add basic frontend tests and manual QA checklist
 
 ## Progress Notes\n- Completed Step 1 discovery: audited current API endpoints and identified web entrypoint options (embedded static assets on server vs separate web process).
 
@@ -24,3 +24,5 @@ Create the first mobile-friendly web interface that can read and write tasks thr
 - Added CLI web launcher command (todoopen web / todoopen gui) plus top-level help output. Web launcher can start local server, wait for health, and optionally auto-open browser.
 
 - Updated README with run instructions for --help, todoopen web/gui, flags, and direct server mode.
+
+## Summary of Changes\n- Added embedded mobile-friendly web UI served by the Go server with simple.css and clean HTML/JS.\n- Implemented task read/write flows in browser (list/create/update/delete) against /v1/tasks endpoints.\n- Added startup/shutdown logs and request access logs with method/path/status/bytes/duration.\n- Added CLI launcher (todoopen web / todoopen gui) with help output, health-wait, and optional browser auto-open.\n- Added frontend surface integration test coverage for index/assets routes and a manual QA checklist doc (docs/web-qa-checklist.md).
