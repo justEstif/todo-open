@@ -1,19 +1,122 @@
 # todo.open
 
-todo.open is a **server-first, local-first task system** built in Go.
+![Go Version](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go)
+![Status](https://img.shields.io/badge/status-MVP-blue)
+![Storage](https://img.shields.io/badge/storage-JSONL-6f42c1)
 
-The project keeps task data portable (JSONL), enforces clear domain rules on the server, and supports multiple clients (CLI first, with web/mobile/TUI planned).
+A **server-first, local-first** task tool built in Go.
 
-## What we are building
+- ✅ Portable local data (JSONL)
+- ✅ Clear server-side domain rules
+- ✅ CLI + web flow today, more clients later
 
-- A canonical **server API** for task lifecycle, validation, and sync workflows
-- A local-first persistence model using JSONL with schema/version contracts
-- A clean architecture that keeps domain logic independent from transport/client UI
-- A path to add sync adapters and additional clients without changing core semantics
+---
 
-## Project documentation
+## 30-second demo
 
-All strategy and planning docs live in [`docs/`](docs):
+```bash
+# 1) Start local web app (starts server + opens browser)
+todoopen web
+
+# 2) In another terminal, create a task via CLI
+todoopen task create -title "Ship README polish"
+
+# 3) List tasks
+todoopen task list
+```
+
+If your server runs on a custom address, add `-server http://127.0.0.1:8080` to task commands.
+
+---
+
+## Install
+
+### Option A: mise (recommended)
+
+Install globally with the mise Go backend:
+
+```bash
+mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest
+todoopen --help
+```
+
+Project-local install (no global binary):
+
+```bash
+mise use go:github.com/justEstif/todo-open/cmd/todoopen@latest
+mise x -- todoopen --help
+```
+
+### Option B: build from source with Go
+
+Prerequisite: **Go 1.26+**
+
+```bash
+git clone https://github.com/justEstif/todo-open.git
+cd todo-open
+go build ./cmd/todoopen
+./todoopen --help
+```
+
+---
+
+## Quick usage
+
+```bash
+todoopen --help
+todoopen web
+todoopen task create -title "My first task"
+todoopen task list
+```
+
+Useful web flags:
+
+- `--addr 127.0.0.1:8080` set local bind address
+- `--no-open` start without opening browser
+- `--server http://127.0.0.1:8080` attach to existing server
+
+Alias:
+
+```bash
+todoopen gui
+```
+
+Run server directly from source checkout:
+
+```bash
+go run ./cmd/todoopen-server
+```
+
+Then open `http://127.0.0.1:8080/`.
+
+---
+
+## Contributing
+
+Use pinned toolchain/tasks via `mise.toml`:
+
+```bash
+git clone https://github.com/justEstif/todo-open.git
+cd todo-open
+mise install
+mise run build
+mise run test
+```
+
+Common checks:
+
+```bash
+mise run fmt
+mise run vet
+mise run test
+mise run build
+```
+
+---
+
+## Docs
+
+Deep-dive docs in [`docs/`](docs):
 
 - [Architecture](docs/architecture.md)
 - [API architecture](docs/api.md)
@@ -22,41 +125,3 @@ All strategy and planning docs live in [`docs/`](docs):
 - [Sync decision](docs/sync.md)
 - [Testing and release strategy](docs/testing.md)
 - [Coding standards](docs/coding-standards.md)
-
-## Run the app
-
-From repo root:
-
-```bash
-go run ./cmd/todoopen --help
-```
-
-### Launch web UI from CLI (recommended)
-
-```bash
-go run ./cmd/todoopen web
-```
-
-Options:
-
-- `--addr 127.0.0.1:8080` bind address for local server launched by CLI
-- `--no-open` do not auto-open browser
-- `--server http://127.0.0.1:8080` attach to an existing server instead of starting one
-
-Alias:
-
-```bash
-go run ./cmd/todoopen gui
-```
-
-### Run server directly
-
-```bash
-go run ./cmd/todoopen-server
-```
-
-Then open `http://127.0.0.1:8080/`.
-
-## Current status
-
-Planning and architecture decisions are complete. The next phase is coding execution (project bootstrap, storage implementation, API endpoints, and CI baseline).
