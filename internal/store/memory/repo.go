@@ -3,7 +3,6 @@ package memory
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/justEstif/todo-open/internal/core"
 )
@@ -57,17 +56,3 @@ func (r *TaskRepo) Update(_ context.Context, task core.Task) (core.Task, error) 
 	return task, nil
 }
 
-func (r *TaskRepo) Delete(_ context.Context, id string, deletedAt time.Time) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	task, ok := r.tasks[id]
-	if !ok || task.DeletedAt != nil {
-		return core.ErrNotFound
-	}
-	task.DeletedAt = &deletedAt
-	task.Status = core.TaskStatusArchived
-	task.UpdatedAt = deletedAt
-	task.Version++
-	r.tasks[id] = task
-	return nil
-}

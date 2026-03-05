@@ -28,7 +28,6 @@ type TaskRepository interface {
 	GetByID(ctx context.Context, id string) (Task, error)
 	List(ctx context.Context) ([]Task, error)
 	Update(ctx context.Context, task Task) (Task, error)
-	Delete(ctx context.Context, id string, deletedAt time.Time) error
 }
 
 type Service struct {
@@ -91,5 +90,15 @@ func (s *Service) DeleteTask(ctx context.Context, id string) error {
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("id is required: %w", ErrInvalidInput)
 	}
-	return s.repo.Delete(ctx, id, s.nowFn().UTC())
+	now := s.nowFn().UTC()
+	task, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	task.DeletedAt = &now
+	task.Status = TaskStatusArchived
+	task.UpdatedAt = now
+	task.Version++
+	_, err = s.repo.Update(ctx, task)
+	return err
 }

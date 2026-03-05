@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/justEstif/todo-open/internal/core"
 )
@@ -45,91 +44,79 @@ func NewTaskRepo(rootPath string) *TaskRepo {
 }
 
 func (r *TaskRepo) Create(_ context.Context, task core.Task) (core.Task, error) {
-	if err := r.ensureWorkspace(); err != nil {
-		return core.Task{}, err
-	}
-	tasks, err := r.readAllTasks()
-	if err != nil {
-		return core.Task{}, err
-	}
-	for _, existing := range tasks {
-		if existing.ID == task.ID {
-			return core.Task{}, fmt.Errorf("task id already exists: %w", core.ErrInvalidInput)
+	_, err := r.withTasksMutation(func(tasks []core.Task) ([]core.Task, error) {
+		for _, existing := range tasks {
+			if existing.ID == task.ID {
+				return nil, fmt.Errorf("task id already exists: %w", core.ErrInvalidInput)
+			}
 		}
-	}
-	tasks = append(tasks, task)
-	if err := r.writeAllTasks(tasks); err != nil {
+		return append(tasks, task), nil
+	})
+	if err != nil {
 		return core.Task{}, err
 	}
 	return task, nil
 }
 
 func (r *TaskRepo) GetByID(_ context.Context, id string) (core.Task, error) {
-	if err := r.ensureWorkspace(); err != nil {
-		return core.Task{}, err
-	}
-	tasks, err := r.readAllTasks()
+	var found core.Task
+	err := r.withTasksRead(func(tasks []core.Task) error {
+		for _, task := range tasks {
+			if task.ID == id {
+				if task.DeletedAt != nil {
+					return core.ErrNotFound
+				}
+				found = task
+				return nil
+			}
+		}
+		return core.ErrNotFound
+	})
 	if err != nil {
 		return core.Task{}, err
 	}
-	for _, task := range tasks {
-		if task.ID == id {
-			if task.DeletedAt != nil {
-				return core.Task{}, core.ErrNotFound
-			}
-			return task, nil
-		}
-	}
-	return core.Task{}, core.ErrNotFound
+	return found, nil
 }
 
 func (r *TaskRepo) List(_ context.Context) ([]core.Task, error) {
-	if err := r.ensureWorkspace(); err != nil {
-		return nil, err
-	}
-	tasks, err := r.readAllTasks()
+	out := []core.Task{}
+	err := r.withTasksRead(func(tasks []core.Task) error {
+		out = make([]core.Task, 0, len(tasks))
+		for _, task := range tasks {
+			if task.DeletedAt == nil {
+				out = append(out, task)
+			}
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]core.Task, 0, len(tasks))
-	for _, task := range tasks {
-		if task.DeletedAt == nil {
-			out = append(out, task)
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, nil
 }
 
 func (r *TaskRepo) Update(_ context.Context, task core.Task) (core.Task, error) {
-	if err := r.ensureWorkspace(); err != nil {
-		return core.Task{}, err
-	}
-	tasks, err := r.readAllTasks()
-	if err != nil {
-		return core.Task{}, err
-	}
-	updated := false
-	for i := range tasks {
-		if tasks[i].ID == task.ID {
-			if tasks[i].DeletedAt != nil {
-				return core.Task{}, core.ErrNotFound
+	_, err := r.withTasksMutation(func(tasks []core.Task) ([]core.Task, error) {
+		for i := range tasks {
+			if tasks[i].ID == task.ID {
+				if tasks[i].DeletedAt != nil {
+					return nil, core.ErrNotFound
+				}
+				tasks[i] = task
+				return tasks, nil
 			}
-			tasks[i] = task
-			updated = true
-			break
 		}
-	}
-	if !updated {
-		return core.Task{}, core.ErrNotFound
-	}
-	if err := r.writeAllTasks(tasks); err != nil {
+		return nil, core.ErrNotFound
+	})
+	if err != nil {
 		return core.Task{}, err
 	}
 	return task, nil
 }
 
-func (r *TaskRepo) Delete(_ context.Context, id string, deletedAt time.Time) error {
+
+func (r *TaskRepo) withTasksRead(fn func([]core.Task) error) error {
 	if err := r.ensureWorkspace(); err != nil {
 		return err
 	}
@@ -137,24 +124,25 @@ func (r *TaskRepo) Delete(_ context.Context, id string, deletedAt time.Time) err
 	if err != nil {
 		return err
 	}
-	updated := false
-	for i := range tasks {
-		if tasks[i].ID == id {
-			if tasks[i].DeletedAt != nil {
-				return core.ErrNotFound
-			}
-			tasks[i].DeletedAt = &deletedAt
-			tasks[i].Status = core.TaskStatusArchived
-			tasks[i].UpdatedAt = deletedAt
-			tasks[i].Version++
-			updated = true
-			break
-		}
+	return fn(tasks)
+}
+
+func (r *TaskRepo) withTasksMutation(fn func([]core.Task) ([]core.Task, error)) ([]core.Task, error) {
+	if err := r.ensureWorkspace(); err != nil {
+		return nil, err
 	}
-	if !updated {
-		return core.ErrNotFound
+	tasks, err := r.readAllTasks()
+	if err != nil {
+		return nil, err
 	}
-	return r.writeAllTasks(tasks)
+	nextTasks, err := fn(tasks)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.writeAllTasks(nextTasks); err != nil {
+		return nil, err
+	}
+	return nextTasks, nil
 }
 
 func (r *TaskRepo) ensureWorkspace() error {

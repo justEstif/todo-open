@@ -54,12 +54,6 @@ func TestTaskRepoCRUDAndMetaBootstrap(t *testing.T) {
 		t.Fatalf("unexpected list result: %+v", items)
 	}
 
-	if err := repo.Delete(context.Background(), "task_1", now.Add(2*time.Minute)); err != nil {
-		t.Fatalf("delete: %v", err)
-	}
-	if _, err := repo.GetByID(context.Background(), "task_1"); err == nil {
-		t.Fatal("expected not found after delete")
-	}
 }
 
 func TestTaskRepoRejectsCorruptJSONL(t *testing.T) {
