@@ -4,12 +4,15 @@ import (
 	"net/http"
 
 	"github.com/justEstif/todo-open/internal/api/handlers"
+	"github.com/justEstif/todo-open/internal/api/web"
 	"github.com/justEstif/todo-open/internal/core"
 )
 
 func NewRouter(taskService core.TaskService) http.Handler {
 	mux := http.NewServeMux()
 	tasks := handlers.NewTaskHandler(taskService)
+	assets := web.AssetsHandler()
+	index := web.IndexHandler()
 
 	mux.HandleFunc("GET /healthz", handlers.Health)
 	mux.HandleFunc("POST /v1/tasks", tasks.Create)
@@ -17,5 +20,8 @@ func NewRouter(taskService core.TaskService) http.Handler {
 	mux.HandleFunc("GET /v1/tasks/{id}", tasks.Get)
 	mux.HandleFunc("PATCH /v1/tasks/{id}", tasks.Update)
 	mux.HandleFunc("DELETE /v1/tasks/{id}", tasks.Delete)
-	return mux
+
+	mux.Handle("GET /static/", http.StripPrefix("/static/", assets))
+	mux.Handle("GET /", index)
+	return withRequestLogging(mux)
 }

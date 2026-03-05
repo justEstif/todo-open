@@ -92,3 +92,20 @@ func TestTaskCommandErrorPath(t *testing.T) {
 		t.Fatalf("unexpected stderr: %s", errBuf.String())
 	}
 }
+
+func TestHelpCommand(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errBuf bytes.Buffer
+	code := run([]string{"--help"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("unexpected stderr: %s", errBuf.String())
+	}
+	if !strings.Contains(out.String(), "todoopen web") {
+		t.Fatalf("help output missing web command: %s", out.String())
+	}
+}

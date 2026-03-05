@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>todo.open</title>
+    <link rel="stylesheet" href="/static/simple.css" />
+    <style>
+      :root { --gap: 0.75rem; }
+      main { padding-bottom: 4rem; }
+      .row { display: flex; gap: var(--gap); align-items: center; }
+      .grow { flex: 1; }
+      ul.tasks { list-style: none; padding: 0; margin: 0; }
+      ul.tasks li { border: 1px solid var(--accent-bg); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem; }
+      .muted { opacity: 0.7; font-size: 0.9rem; }
+      .danger { background: #b00020; border-color: #b00020; }
+      @media (min-width: 800px) {
+        .shell { max-width: 720px; margin: 0 auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>todo.open</h1>
+
+      <section>
+        <h2>New task</h2>
+        <form id="create-form" class="row">
+          <input id="create-title" class="grow" type="text" placeholder="What needs doing?" required />
+          <button type="submit">Add</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Tasks</h2>
+        <p id="status" class="muted">Loading...</p>
+        <ul id="task-list" class="tasks"></ul>
+      </section>
+
+      <section>
+        <h2>Edit</h2>
+        <form id="edit-form">
+          <input id="edit-id" type="hidden" />
+          <label for="edit-title">Title</label>
+          <input id="edit-title" type="text" required />
+          <div class="row">
+            <button type="submit">Save</button>
+            <button id="delete-btn" class="danger" type="button">Delete</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

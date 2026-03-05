@@ -23,6 +23,40 @@ All strategy and planning docs live in [`docs/`](docs):
 - [Testing and release strategy](docs/testing.md)
 - [Coding standards](docs/coding-standards.md)
 
+## Run the app
+
+From repo root:
+
+```bash
+go run ./cmd/todoopen --help
+```
+
+### Launch web UI from CLI (recommended)
+
+```bash
+go run ./cmd/todoopen web
+```
+
+Options:
+
+- `--addr 127.0.0.1:8080` bind address for local server launched by CLI
+- `--no-open` do not auto-open browser
+- `--server http://127.0.0.1:8080` attach to an existing server instead of starting one
+
+Alias:
+
+```bash
+go run ./cmd/todoopen gui
+```
+
+### Run server directly
+
+```bash
+go run ./cmd/todoopen-server
+```
+
+Then open `http://127.0.0.1:8080/`.
+
 ## Current status
 
 Planning and architecture decisions are complete. The next phase is coding execution (project bootstrap, storage implementation, API endpoints, and CI baseline).

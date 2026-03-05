@@ -1,12 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
+	"syscall"
+	"time"
 
+	"github.com/justEstif/todo-open/internal/app"
 	apiclient "github.com/justEstif/todo-open/internal/client/api"
 	"github.com/justEstif/todo-open/internal/core"
 )
@@ -16,15 +24,34 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
-	if len(args) > 0 {
-		switch args[0] {
-		case "validate":
-			return runValidate(args[1:], stdout, stderr)
-		case "task":
-			return runTask(args[1:], stdout, stderr)
-		}
+	if len(args) == 0 {
+		return runHelp(stdout)
 	}
-	return runHealth(args, stdout, stderr)
+
+	switch args[0] {
+	case "-h", "--help", "help":
+		return runHelp(stdout)
+	case "validate":
+		return runValidate(args[1:], stdout, stderr)
+	case "task":
+		return runTask(args[1:], stdout, stderr)
+	case "web", "gui":
+		return runWeb(args[1:], stdout, stderr)
+	default:
+		return runHealth(args, stdout, stderr)
+	}
+}
+
+func runHelp(stdout io.Writer) int {
+	fmt.Fprintln(stdout, "todoopen - server-first local task client")
+	fmt.Fprintln(stdout, "")
+	fmt.Fprintln(stdout, "Usage:")
+	fmt.Fprintln(stdout, "  todoopen --help")
+	fmt.Fprintln(stdout, "  todoopen [--server URL]                # health check")
+	fmt.Fprintln(stdout, "  todoopen web [--addr ADDR] [--no-open] # launch web app")
+	fmt.Fprintln(stdout, "  todoopen validate [flags]")
+	fmt.Fprintln(stdout, "  todoopen task <create|list|get|update|delete> [flags]")
+	return 0
 }
 
 func runHealth(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -83,6 +110,77 @@ func runValidate(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "  context: %s\n", issue.Context)
 	}
 	return 1
+}
+
+func runWeb(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("web", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	addr := fs.String("addr", "127.0.0.1:8080", "address to bind local server")
+	baseURL := fs.String("server", "", "use an existing server URL instead of starting one")
+	noOpen := fs.Bool("no-open", false, "do not open browser automatically")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	url := *baseURL
+	if url == "" {
+		url = "http://" + *addr
+		srv := app.NewServer(*addr)
+		go func() {
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				fmt.Fprintf(stderr, "server failed: %v\n", err)
+			}
+		}()
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = srv.Shutdown(ctx)
+		}()
+	}
+
+	if err := waitForHealthy(url, 5*time.Second); err != nil {
+		fmt.Fprintf(stderr, "web launch failed: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(stdout, "todo.open web is available at %s/\n", url)
+	if !*noOpen {
+		if err := openBrowser(url + "/"); err != nil {
+			fmt.Fprintf(stderr, "failed to open browser automatically: %v\n", err)
+		}
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
+	return 0
+}
+
+func waitForHealthy(baseURL string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	client := apiclient.New(baseURL)
+	for {
+		if err := client.Health(); err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for healthy server at %s", baseURL)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
 }
 
 func runTask(args []string, stdout io.Writer, stderr io.Writer) int {

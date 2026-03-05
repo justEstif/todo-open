@@ -19,6 +19,7 @@ func main() {
 	}
 
 	srv := app.NewServer(addr)
+	log.Printf("todo.open server starting on %s", addr)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -34,5 +35,7 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("graceful shutdown failed: %v", err)
+		return
 	}
+	log.Printf("todo.open server stopped")
 }
