@@ -8,13 +8,15 @@ import (
 	"github.com/justEstif/todo-open/internal/core"
 )
 
-func NewRouter(taskService core.TaskService) http.Handler {
+func NewRouter(taskService core.TaskService, adapterRuntime handlers.AdapterRuntimeResponse) http.Handler {
 	mux := http.NewServeMux()
 	tasks := handlers.NewTaskHandler(taskService)
+	adapters := handlers.NewAdapterHandler(adapterRuntime)
 	assets := web.AssetsHandler()
 	index := web.IndexHandler()
 
 	mux.HandleFunc("GET /healthz", handlers.Health)
+	mux.HandleFunc("GET /v1/adapters", adapters.List)
 	mux.HandleFunc("POST /v1/tasks", tasks.Create)
 	mux.HandleFunc("GET /v1/tasks", tasks.List)
 	mux.HandleFunc("GET /v1/tasks/{id}", tasks.Get)

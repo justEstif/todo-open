@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/justEstif/todo-open/internal/api"
+	"github.com/justEstif/todo-open/internal/api/handlers"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -16,7 +17,7 @@ import (
 func TestWebAppStaticSurface(t *testing.T) {
 	repo := memory.NewTaskRepo()
 	svc := core.NewService(repo, time.Now, func() string { return "task_1" })
-	ts := httptest.NewServer(api.NewRouter(svc))
+	ts := httptest.NewServer(api.NewRouter(svc, handlers.AdapterRuntimeResponse{}))
 	t.Cleanup(ts.Close)
 
 	resp := mustGet(t, ts.URL+"/")

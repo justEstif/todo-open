@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/justEstif/todo-open/internal/api"
+	"github.com/justEstif/todo-open/internal/api/handlers"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -24,7 +25,7 @@ func TestTaskCRUDCommands(t *testing.T) {
 		i++
 		return id
 	})
-	ts := httptest.NewServer(api.NewRouter(svc))
+	ts := httptest.NewServer(api.NewRouter(svc, handlers.AdapterRuntimeResponse{}))
 	t.Cleanup(ts.Close)
 
 	var out bytes.Buffer

@@ -92,7 +92,20 @@ todoopen adapters
 todoopen adapters --config .todoopen/adapters.json --json
 ```
 
-This command prints per-adapter `enabled`/`healthy` status and exits non-zero when runtime is not ready.
+Or query the server endpoint:
+
+```bash
+curl -s http://127.0.0.1:8080/v1/adapters
+```
+
+`GET /v1/adapters` returns:
+
+- `config`: resolved adapter config (`enabled_views`, `enabled_sync_adapters`, optional settings)
+- `status`: per-adapter entries with `kind`, `name`, `enabled`, `healthy`, optional `message`
+- `ready`: overall startup/runtime readiness
+- `errors`: adapter initialization errors when not ready
+
+The CLI command and HTTP endpoint expose the same runtime readiness model.
 
 ## Extension Workflow
 

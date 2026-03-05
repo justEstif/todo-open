@@ -79,6 +79,7 @@ Conceptual endpoints:
 
 - `GET /healthz`
 - `GET /readyz`
+- `GET /v1/adapters` (runtime adapter status)
 - `GET /v1/meta`
 - `GET /v1/version`
 
