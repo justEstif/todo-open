@@ -44,11 +44,8 @@ This balances speed, local-first durability, and future extensibility.
 
 ## API surface (conceptual)
 
-- `GET /v1/sync/status`
-- `POST /v1/sync/pull`
-- `POST /v1/sync/push`
-- `GET /v1/sync/conflicts`
-- `POST /v1/sync/conflicts/{id}/resolve`
+Sync HTTP endpoints are defined in `api.md` (Sync API section) as the canonical transport contract.
+This document focuses on sync behavior/policy decisions rather than endpoint duplication.
 
 ---
 

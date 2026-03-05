@@ -46,7 +46,7 @@ todo.open exists to provide:
 ## MVP Scope
 
 - Define a core task schema and metadata file
-- Implement basic CRUD operations via CLI
+- Implement basic CRUD operations via server API and ship CLI as first client
 - Add schema validation command
 - Provide starter query recipes for Miller/VisiData
 - Publish a first mobile-friendly web view (read/write)

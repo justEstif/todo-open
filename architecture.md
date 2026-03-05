@@ -1,5 +1,5 @@
 ---
-status: in-review
+status: accepted
 ---
 
 # todo.open High-Level Architecture (Server-First Vision)
@@ -52,10 +52,7 @@ Responsibilities:
 
 Protocols (phased):
 
-- MVP: local HTTP API (loopback)
-
-// NOTE I'm not sure about what this means?
-
+- MVP: local HTTP API bound to loopback (`127.0.0.1` / `localhost`) for single-user local operation
 - Later: optional remote deployment mode with auth and multi-user controls
 
 ## 2) Core Domain Engine (Go package)
@@ -83,11 +80,18 @@ Initial backend:
 
 Future backends:
 
-// NOTE: This is an interesting idea. I would be interested in JSONL has any issues as a long term
-storage option
-// NOTE What happens when you have a huge JSONL file? Do I care about performance?
-
 - Embedded DB or object-store-backed variants via adapter interface
+
+### Storage evolution policy
+
+- JSONL remains the canonical interchange and portability format.
+- Runtime persistence may evolve behind `internal/store` without API/client changes.
+- Trigger evaluation for storage backend upgrade when one or more thresholds are consistently exceeded:
+  - `tasks.jsonl` size > 100MB,
+  - task count > 100k,
+  - p95 list/query latency > 200ms in local mode,
+  - compaction/recovery operations become user-visible bottlenecks.
+- If thresholds are exceeded, introduce segmented JSONL or embedded DB implementation behind the same store interface while preserving import/export to canonical JSONL.
 
 ## 4) Sync Layer
 

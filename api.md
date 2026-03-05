@@ -1,3 +1,7 @@
+---
+status: accepted
+---
+
 # todo.open Server API Architecture
 
 This document defines the high-level API model for todo.open’s **server-first** architecture.

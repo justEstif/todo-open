@@ -115,6 +115,11 @@ Recommended validation modes:
 - `strict`: fail on any unknown top-level non-core field
 - `compat`: warn and preserve unknown top-level fields (for migration)
 
+Default policy:
+
+- Server mode defaults to `strict` validation.
+- `compat` is permitted only for explicit import/migration flows.
+
 ---
 
 ## 6) Workspace metadata contract (`.todoopen/meta.json`)
