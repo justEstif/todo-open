@@ -41,6 +41,39 @@ This keeps product direction centered on a stable domain and protocol, not any s
 
 ## Top-Level System Components
 
+## High-Level Interaction Diagram
+
+```mermaid
+flowchart LR
+    subgraph Clients[Clients]
+        CLI[CLI]
+        WEB[Web / Mobile]
+        TUI[TUI]
+        EXT[External Integrations]
+    end
+
+    subgraph Server[todo.open Server]
+        API[HTTP API\ninternal/api]
+        CORE[Core Domain\ninternal/core]
+        STORE[Storage\ninternal/store]
+        SYNC[Sync Service\ninternal/sync]
+    end
+
+    REMOTE[(Remote Peer / Provider)]
+
+    CLI --> API
+    WEB --> API
+    TUI --> API
+    EXT --> API
+
+    API --> CORE
+    CORE --> STORE
+    CORE --> SYNC
+    SYNC <--> REMOTE
+
+    STORE -. durable JSONL .- CORE
+```
+
 ## 1) API Server (Go)
 
 Responsibilities:
