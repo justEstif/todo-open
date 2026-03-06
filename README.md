@@ -166,6 +166,7 @@ flowchart TD
 - [x] Web UI
 - [x] Pluggable sync and view adapter contracts
 - [x] Git sync adapter (reference implementation)
+- [ ] Agent task coordination / real-time sync
 - [ ] TUI client
 - [ ] Packaged binaries (`.deb`, `.apk`, `.exe`, `.dmg`)
 - [ ] Desktop app
