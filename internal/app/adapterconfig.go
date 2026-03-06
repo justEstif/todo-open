@@ -1,14 +1,14 @@
 package app
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/justEstif/todo-open/internal/adapters"
+	"github.com/justEstif/todo-open/internal/plugin"
 	syncadapter "github.com/justEstif/todo-open/internal/sync"
 	"github.com/justEstif/todo-open/internal/view"
 )
@@ -18,36 +18,6 @@ type AdapterConfig = adapters.Config
 type AdapterStatus = adapters.Status
 type AdapterRuntime = adapters.Runtime
 
-func DefaultAdapterConfig() AdapterConfig {
-	return AdapterConfig{
-		EnabledViews:        []string{"json"},
-		EnabledSyncAdapters: []string{"noop"},
-	}
-}
-
-func LoadAdapterConfig(path string) (AdapterConfig, error) {
-	if strings.TrimSpace(path) == "" {
-		return DefaultAdapterConfig(), nil
-	}
-
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return DefaultAdapterConfig(), nil
-	}
-	if err != nil {
-		return AdapterConfig{}, fmt.Errorf("read adapter config: %w", err)
-	}
-
-	cfg := DefaultAdapterConfig()
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return AdapterConfig{}, fmt.Errorf("decode adapter config: %w", err)
-	}
-	if err := validateAdapterConfig(cfg); err != nil {
-		return AdapterConfig{}, err
-	}
-	return cfg, nil
-}
-
 func BuildAdapterRuntime(cfg AdapterConfig, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
 	runtime := AdapterRuntime{Config: cfg, Ready: true}
 
@@ -56,25 +26,25 @@ func BuildAdapterRuntime(cfg AdapterConfig, viewRegistry *view.Registry, syncReg
 
 	for _, name := range viewRegistry.Names() {
 		enabled := enabledViews[name]
-		runtime.Status = append(runtime.Status, AdapterStatus{Kind: "view", Name: name, Enabled: enabled, Healthy: enabled})
+		runtime.Status = append(runtime.Status, AdapterStatus{Kind: "view", Name: name, Source: "builtin", Enabled: enabled, Healthy: enabled})
 	}
 	for _, name := range cfg.EnabledViews {
 		if _, err := viewRegistry.Get(name); err != nil {
 			runtime.Ready = false
 			runtime.Errors = append(runtime.Errors, fmt.Sprintf("view adapter %q is enabled but not registered", name))
-			runtime.Status = append(runtime.Status, AdapterStatus{Kind: "view", Name: name, Enabled: true, Healthy: false, Message: "adapter is not registered"})
+			runtime.Status = append(runtime.Status, AdapterStatus{Kind: "view", Name: name, Source: "unknown", Enabled: true, Healthy: false, Message: "adapter is not registered"})
 		}
 	}
 
 	for _, name := range syncRegistry.Names() {
 		enabled := enabledSync[name]
-		runtime.Status = append(runtime.Status, AdapterStatus{Kind: "sync", Name: name, Enabled: enabled, Healthy: enabled})
+		runtime.Status = append(runtime.Status, AdapterStatus{Kind: "sync", Name: name, Source: "builtin", Enabled: enabled, Healthy: enabled})
 	}
 	for _, name := range cfg.EnabledSyncAdapters {
 		if _, err := syncRegistry.Get(name); err != nil {
 			runtime.Ready = false
 			runtime.Errors = append(runtime.Errors, fmt.Sprintf("sync adapter %q is enabled but not registered", name))
-			runtime.Status = append(runtime.Status, AdapterStatus{Kind: "sync", Name: name, Enabled: true, Healthy: false, Message: "adapter is not registered"})
+			runtime.Status = append(runtime.Status, AdapterStatus{Kind: "sync", Name: name, Source: "unknown", Enabled: true, Healthy: false, Message: "adapter is not registered"})
 		}
 	}
 
@@ -86,16 +56,6 @@ func BuildAdapterRuntime(cfg AdapterConfig, viewRegistry *view.Registry, syncReg
 	})
 
 	return runtime
-}
-
-func validateAdapterConfig(cfg AdapterConfig) error {
-	if err := validateNames("enabled_views", cfg.EnabledViews); err != nil {
-		return err
-	}
-	if err := validateNames("enabled_sync_adapters", cfg.EnabledSyncAdapters); err != nil {
-		return err
-	}
-	return nil
 }
 
 func validateNames(field string, names []string) error {
@@ -111,6 +71,94 @@ func validateNames(field string, names []string) error {
 		seen[trimmed] = struct{}{}
 	}
 	return nil
+}
+
+func BuildAdapterRuntimeFromMeta(meta WorkspaceMeta, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
+	cfg := AdapterConfig{
+		EnabledViews:        meta.EnabledViews,
+		EnabledSyncAdapters: meta.EnabledSyncAdapters,
+	}
+	runtime := BuildAdapterRuntime(cfg, viewRegistry, syncRegistry)
+
+	pluginByKey := map[string]AdapterPluginConfig{}
+	for _, p := range meta.AdapterPlugins {
+		pluginByKey[string(p.Kind)+":"+p.Name] = p
+	}
+
+	loader := plugin.NewLoader(2 * time.Second)
+	for _, name := range meta.EnabledViews {
+		if _, err := viewRegistry.Get(name); err == nil {
+			continue
+		}
+		p, ok := pluginByKey[string(plugin.AdapterKindView)+":"+name]
+		if !ok {
+			continue
+		}
+		def := plugin.Definition{Name: p.Name, Kind: p.Kind, Command: p.Command, Args: p.Args}
+		loaded, err := loader.Load(context.Background(), def)
+		if err != nil {
+			runtime.Ready = false
+			runtime.Errors = append(runtime.Errors, fmt.Sprintf("view plugin %q failed startup handshake: %v", name, err))
+			upsertStatus(&runtime, AdapterStatus{Kind: "view", Name: name, Source: "plugin", Enabled: true, Healthy: false, Message: "plugin handshake failed"})
+			continue
+		}
+		_ = loaded.Close()
+		removeMissingRegistrationError(&runtime, "view", name)
+		upsertStatus(&runtime, AdapterStatus{Kind: "view", Name: name, Source: "plugin", Enabled: true, Healthy: true, Message: "plugin handshake ok"})
+	}
+
+	for _, name := range meta.EnabledSyncAdapters {
+		if _, err := syncRegistry.Get(name); err == nil {
+			continue
+		}
+		p, ok := pluginByKey[string(plugin.AdapterKindSync)+":"+name]
+		if !ok {
+			continue
+		}
+		def := plugin.Definition{Name: p.Name, Kind: p.Kind, Command: p.Command, Args: p.Args}
+		loaded, err := loader.Load(context.Background(), def)
+		if err != nil {
+			runtime.Ready = false
+			runtime.Errors = append(runtime.Errors, fmt.Sprintf("sync plugin %q failed startup handshake: %v", name, err))
+			upsertStatus(&runtime, AdapterStatus{Kind: "sync", Name: name, Source: "plugin", Enabled: true, Healthy: false, Message: "plugin handshake failed"})
+			continue
+		}
+		_ = loaded.Close()
+		removeMissingRegistrationError(&runtime, "sync", name)
+		upsertStatus(&runtime, AdapterStatus{Kind: "sync", Name: name, Source: "plugin", Enabled: true, Healthy: true, Message: "plugin handshake ok"})
+	}
+
+	sort.Slice(runtime.Status, func(i, j int) bool {
+		if runtime.Status[i].Kind == runtime.Status[j].Kind {
+			return runtime.Status[i].Name < runtime.Status[j].Name
+		}
+		return runtime.Status[i].Kind < runtime.Status[j].Kind
+	})
+	runtime.Ready = len(runtime.Errors) == 0
+
+	return runtime
+}
+
+func upsertStatus(runtime *AdapterRuntime, status AdapterStatus) {
+	for i := range runtime.Status {
+		if runtime.Status[i].Kind == status.Kind && runtime.Status[i].Name == status.Name {
+			runtime.Status[i] = status
+			return
+		}
+	}
+	runtime.Status = append(runtime.Status, status)
+}
+
+func removeMissingRegistrationError(runtime *AdapterRuntime, kind, name string) {
+	prefix := fmt.Sprintf("%s adapter %q is enabled but not registered", kind, name)
+	filtered := make([]string, 0, len(runtime.Errors))
+	for _, msg := range runtime.Errors {
+		if msg == prefix {
+			continue
+		}
+		filtered = append(filtered, msg)
+	}
+	runtime.Errors = filtered
 }
 
 func asSet(items []string) map[string]bool {

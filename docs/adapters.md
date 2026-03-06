@@ -4,7 +4,13 @@ status: accepted
 
 # Adapter Contracts (Views and Sync)
 
-This document defines the MVP extension workflow for runtime adapters.
+This document defines the current adapter contracts and runtime behavior.
+
+## Runtime Configuration Model
+
+- Built-in adapters are registered in Go at startup.
+- Plugin-backed adapters are discovered via `.todoopen/meta.json`.
+- Runtime enablement source of truth is `.todoopen/meta.json`.
 
 ## Goals
 
@@ -27,7 +33,7 @@ Registry behavior:
 - Duplicate names are rejected.
 - Callers fetch adapters by name and use them through the interface only.
 
-Reference implementation:
+Built-in implementations:
 
 - `internal/view/json.Adapter` renders `{"items": [...]}` JSON.
 
@@ -47,27 +53,33 @@ Registry behavior:
 - Duplicate names are rejected.
 - Callers fetch adapters by name and use them through the interface only.
 
-Reference implementation:
+Built-in implementations:
 
 - `internal/sync/noop.Adapter` provides a no-op baseline implementation for wiring/tests.
 
-## Adapter Configuration Schema
+## Example Extensions
 
-Runtime adapter config is loaded from `.todoopen/adapters.json` (or `TODOOPEN_ADAPTER_CONFIG`).
-If the file is missing, defaults are applied (`json` view + `noop` sync enabled).
+Adapter examples are maintained in a separate examples repository.
+Use those examples as templates for project-specific adapters.
+
+## Current Adapter Configuration Schema
+
+Runtime adapter config is loaded from workspace metadata in `.todoopen/meta.json`.
+If metadata is missing, defaults are applied (`json` view + `noop` sync enabled).
 
 ```json
 {
-  "enabled_views": ["json"],
-  "enabled_sync_adapters": ["noop"],
-  "view_settings": {
-    "json": {
-      "indent": 2
-    }
-  },
-  "sync_settings": {
-    "noop": {
-      "dry_run": true
+  "workspace_version": 1,
+  "schema_version": "todo.open.task.v1",
+  "enabled_views": ["json", "markdown"],
+  "enabled_sync_adapters": ["noop", "git"],
+  "adapter_plugins": [
+    {"name": "markdown", "kind": "view", "command": "todoopen-plugin-view-markdown"},
+    {"name": "git", "kind": "sync", "command": "todoopen-plugin-sync-git"}
+  ],
+  "ext": {
+    "adapter_settings": {
+      "git": {"remote": "origin", "branch": "tasks"}
     }
   }
 }
@@ -89,7 +101,7 @@ Use the CLI to inspect runtime status:
 
 ```bash
 todoopen adapters
-todoopen adapters --config .todoopen/adapters.json --json
+todoopen adapters --workspace /path/to/workspace --json
 ```
 
 Or query the server endpoint:
@@ -101,7 +113,7 @@ curl -s http://127.0.0.1:8080/v1/adapters
 `GET /v1/adapters` returns:
 
 - `config`: resolved adapter config (`enabled_views`, `enabled_sync_adapters`, optional settings)
-- `status`: per-adapter entries with `kind`, `name`, `enabled`, `healthy`, optional `message`
+- `status`: per-adapter entries with `kind`, `name`, `source` (`builtin|plugin|unknown`), `enabled`, `healthy`, optional `message`
 - `ready`: overall startup/runtime readiness
 - `errors`: adapter initialization errors when not ready
 
@@ -109,11 +121,11 @@ The CLI command and HTTP endpoint expose the same runtime readiness model.
 
 ## Extension Workflow
 
-1. Create a package implementing the relevant interface (`internal/view` or `internal/sync`).
-2. Give the adapter a stable `Name()` value.
-3. Register the adapter during app composition.
-4. Add adapter-specific settings under `view_settings.<name>` or `sync_settings.<name>`.
-5. Resolve by name where needed; avoid concrete-type coupling outside adapter package.
+1. Implement the relevant adapter contract (`internal/view` or `internal/sync`).
+2. Use a stable adapter `Name()`.
+3. For built-ins, register during app composition.
+4. For external plugins, register and enable through `.todoopen/meta.json`.
+5. Keep adapter-specific settings under metadata extension fields.
 6. Add focused unit tests for contract conformance.
 
 This keeps extension complexity inside adapters and minimizes change amplification for the rest of the codebase.

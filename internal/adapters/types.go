@@ -12,6 +12,7 @@ type Config struct {
 type Status struct {
 	Kind    string `json:"kind"`
 	Name    string `json:"name"`
+	Source  string `json:"source,omitempty"`
 	Enabled bool   `json:"enabled"`
 	Healthy bool   `json:"healthy"`
 	Message string `json:"message,omitempty"`

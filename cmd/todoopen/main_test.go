@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -108,5 +110,56 @@ func TestHelpCommand(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "todoopen web") {
 		t.Fatalf("help output missing web command: %s", out.String())
+	}
+}
+
+func TestAdaptersCommand_ShowsSourceForBuiltins(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(workspace, ".todoopen"), 0o755); err != nil {
+		t.Fatalf("mkdir metadata dir: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errBuf bytes.Buffer
+	code := run([]string{"adapters", "--workspace", workspace, "--json"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d stderr=%s", code, errBuf.String())
+	}
+	if !strings.Contains(out.String(), `"source":"builtin"`) {
+		t.Fatalf("expected builtin source in output: %s", out.String())
+	}
+}
+
+func TestAdaptersCommand_ShowsSourceForPlugin(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	metaDir := filepath.Join(workspace, ".todoopen")
+	if err := os.MkdirAll(metaDir, 0o755); err != nil {
+		t.Fatalf("mkdir metadata dir: %v", err)
+	}
+	payload := `{
+  "workspace_version": 1,
+  "schema_version": "todo.open.task.v1",
+  "enabled_views": ["json", "markdown"],
+  "enabled_sync_adapters": ["noop"],
+  "adapter_plugins": [
+    {"name":"markdown","kind":"view","command":"sh","args":["-c","printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"markdown\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"]}
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(payload), 0o644); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errBuf bytes.Buffer
+	code := run([]string{"adapters", "--workspace", workspace, "--json"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d stderr=%s out=%s", code, errBuf.String(), out.String())
+	}
+	if !strings.Contains(out.String(), `"name":"markdown"`) || !strings.Contains(out.String(), `"source":"plugin"`) {
+		t.Fatalf("expected plugin source in output: %s", out.String())
 	}
 }

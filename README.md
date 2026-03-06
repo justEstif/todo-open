@@ -97,7 +97,7 @@ Useful flags for `todoopen web`:
 
 ## Bring your own sync
 
-Sync is opt-in. The default adapter is a no-op, so tasks stay local by default.
+Sync is opt-in. The built-in default adapter is `noop`, so tasks stay local by default.
 
 The sync adapter interface and registry are implemented, but end-to-end sync execution routes are still roadmap work. Treat this section as extension guidance for contributors, not current end-user functionality.
 
@@ -111,16 +111,25 @@ type Adapter interface {
 }
 ```
 
-Then register it at startup and enable it in `.todoopen/adapters.json`:
+Then register/install your plugin and enable it in `.todoopen/meta.json`:
 
 ```json
 {
-  "enabled_sync_adapters": ["git"],
-  "sync_settings": {
-    "git": { "remote": "origin", "branch": "tasks" }
+  "workspace_version": 1,
+  "schema_version": "todo.open.task.v1",
+  "enabled_sync_adapters": ["noop", "git"],
+  "adapter_plugins": [
+    {"name": "git", "kind": "sync", "command": "todoopen-plugin-sync-git"}
+  ],
+  "ext": {
+    "adapter_settings": {
+      "git": { "remote": "origin", "branch": "tasks" }
+    }
   }
 }
 ```
+
+See `docs/adapters.md` and `docs/schema.md` for plugin contract and metadata configuration details.
 
 Example adapters you could build or contribute:
 
@@ -128,6 +137,8 @@ Example adapters you could build or contribute:
 - **rsync** — sync to a remote machine over SSH
 - **S3** — backup to object storage
 - **custom** — anything with a `Push`/`Pull` contract
+
+Reference implementations are maintained in a separate examples repository.
 
 ---
 
@@ -148,6 +159,8 @@ type Adapter interface {
     RenderTasks(ctx context.Context, tasks []core.Task) ([]byte, error)
 }
 ```
+
+View extension examples are maintained in a separate examples repository.
 
 ---
 

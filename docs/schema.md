@@ -124,13 +124,30 @@ Default policy:
 
 ## 6) Workspace metadata contract (`.todoopen/meta.json`)
 
+This file is the long-term source of truth for workspace-level configuration, including adapter/plugin registration.
+Adapter/plugin metadata details are defined below and used as runtime source of truth.
+
 ```json
 {
   "workspace_version": 1,
   "schema_version": "todo.open.task.v1",
   "default_sort": ["status", "priority", "updated_at"],
-  "enabled_views": [],
-  "enabled_sync_adapters": []
+  "enabled_views": ["json"],
+  "enabled_sync_adapters": ["noop"],
+  "adapter_plugins": [
+    {
+      "name": "markdown",
+      "kind": "view",
+      "command": "todoopen-plugin-view-markdown"
+    }
+  ],
+  "ext": {
+    "adapter_settings": {
+      "markdown": {
+        "theme": "plain"
+      }
+    }
+  }
 }
 ```
 
@@ -138,6 +155,15 @@ Required keys:
 
 - `workspace_version` (integer)
 - `schema_version` (string)
+
+Optional keys include:
+
+- `enabled_views` (string[]): defaults to `["json"]` when omitted
+- `enabled_sync_adapters` (string[]): defaults to `["noop"]` when omitted
+- `adapter_plugins` (array): plugin registrations with `name`, `kind` (`view|sync`), and `command`
+- `ext.adapter_settings` (object): plugin-specific settings namespace
+
+See `docs/adapters.md` for adapter contract and runtime status behavior details.
 
 ---
 

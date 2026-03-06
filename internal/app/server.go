@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,15 +19,11 @@ func NewServer(addr string) (*http.Server, error) {
 		return nil, err
 	}
 
-	configPath := os.Getenv("TODOOPEN_ADAPTER_CONFIG")
-	if strings.TrimSpace(configPath) == "" {
-		configPath = filepath.Join(workspaceRoot, ".todoopen", "adapters.json")
+	meta, err := LoadWorkspaceMeta(workspaceRoot)
+	if err != nil {
+		return nil, fmt.Errorf("load workspace metadata: %w", err)
 	}
 
-	cfg, err := LoadAdapterConfig(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("load adapter config: %w", err)
-	}
 	viewRegistry, err := NewViewRegistry()
 	if err != nil {
 		return nil, fmt.Errorf("load view adapters: %w", err)
@@ -37,7 +32,7 @@ func NewServer(addr string) (*http.Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load sync adapters: %w", err)
 	}
-	runtime := BuildAdapterRuntime(cfg, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromMeta(meta, viewRegistry, syncRegistry)
 	if !runtime.Ready {
 		return nil, fmt.Errorf("adapter initialization failed: %s", strings.Join(runtime.Errors, "; "))
 	}

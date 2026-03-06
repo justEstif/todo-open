@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,5 +53,35 @@ func TestNewServer_PersistsTasksAcrossRestart(t *testing.T) {
 	}
 	if items[0].Title != "persist me" {
 		t.Fatalf("title after restart = %q, want %q", items[0].Title, "persist me")
+	}
+}
+
+func TestNewServer_FailsWhenEnabledPluginHandshakeFails(t *testing.T) {
+	workspace := t.TempDir()
+	t.Setenv("TODOOPEN_WORKSPACE_ROOT", workspace)
+
+	metaDir := filepath.Join(workspace, ".todoopen")
+	if err := os.MkdirAll(metaDir, 0o755); err != nil {
+		t.Fatalf("mkdir metadata dir: %v", err)
+	}
+	payload := `{
+  "workspace_version": 1,
+  "schema_version": "todo.open.task.v1",
+  "enabled_views": ["json", "markdown"],
+  "enabled_sync_adapters": ["noop"],
+  "adapter_plugins": [
+    {"name":"markdown","kind":"view","command":"sh","args":["-c","printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"wrong\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"]}
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(payload), 0o644); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+
+	_, err := NewServer(":0")
+	if err == nil {
+		t.Fatal("expected startup error")
+	}
+	if !strings.Contains(err.Error(), "adapter initialization failed") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

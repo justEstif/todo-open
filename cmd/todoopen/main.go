@@ -53,7 +53,7 @@ func runHelp(stdout io.Writer) int {
 	fmt.Fprintln(stdout, "  todoopen web [--addr ADDR] [--no-open] # launch web app")
 	fmt.Fprintln(stdout, "  todoopen validate [flags]")
 	fmt.Fprintln(stdout, "  todoopen task <create|list|get|update|delete> [flags]")
-	fmt.Fprintln(stdout, "  todoopen adapters [--config PATH] [--json]")
+	fmt.Fprintln(stdout, "  todoopen adapters [--workspace PATH] [--json]")
 	return 0
 }
 
@@ -193,15 +193,28 @@ func openBrowser(url string) error {
 func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 	fs := flag.NewFlagSet("adapters", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	configPath := fs.String("config", ".todoopen/adapters.json", "path to adapter config file")
+	workspace := fs.String("workspace", "", "workspace root path (defaults to TODOOPEN_WORKSPACE_ROOT or cwd)")
 	asJSON := fs.Bool("json", false, "print adapter status as JSON")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	cfg, err := app.LoadAdapterConfig(*configPath)
+	workspaceRoot := *workspace
+	if workspaceRoot == "" {
+		workspaceRoot = os.Getenv("TODOOPEN_WORKSPACE_ROOT")
+	}
+	if workspaceRoot == "" {
+		var err error
+		workspaceRoot, err = os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "failed to resolve workspace root: %v\n", err)
+			return 1
+		}
+	}
+
+	meta, err := app.LoadWorkspaceMeta(workspaceRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "failed to load adapter config: %v\n", err)
+		fmt.Fprintf(stderr, "failed to load workspace metadata: %v\n", err)
 		return 1
 	}
 	viewRegistry, err := app.NewViewRegistry()
@@ -215,7 +228,7 @@ func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	runtime := app.BuildAdapterRuntime(cfg, viewRegistry, syncRegistry)
+	runtime := app.BuildAdapterRuntimeFromMeta(meta, viewRegistry, syncRegistry)
 	if *asJSON {
 		printJSON(stdout, runtime)
 	} else {
@@ -224,7 +237,7 @@ func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 			if !s.Healthy {
 				health = "unhealthy"
 			}
-			fmt.Fprintf(stdout, "%s\t%s\tenabled=%t\t%s\n", s.Kind, s.Name, s.Enabled, health)
+			fmt.Fprintf(stdout, "%s\t%s\tsource=%s\tenabled=%t\t%s\n", s.Kind, s.Name, s.Source, s.Enabled, health)
 			if s.Message != "" {
 				fmt.Fprintf(stdout, "  %s\n", s.Message)
 			}
