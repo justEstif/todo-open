@@ -69,6 +69,16 @@ go build ./cmd/todoopen
 ./todoopen --help
 ```
 
+### 2-minute persistence smoke test
+
+If you cloned this repo, run:
+
+```sh
+./scripts/persistence-smoke.sh
+```
+
+This proves the core value quickly: create a task, restart the server, and verify the task still exists.
+
 ---
 
 ## Usage
@@ -78,7 +88,7 @@ go build ./cmd/todoopen
 todoopen web
 
 # In another terminal — manage tasks via CLI
-todoopen task create -title "Write release notes"
+todoopen task create --title "Write release notes"
 todoopen task list
 
 # Inspect which adapters are active
