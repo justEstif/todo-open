@@ -62,6 +62,12 @@ todoopen adapters
 
 ---
 
+## Web UI Preview
+
+![todo.open web UI preview](docs/ui-screenshot.png)
+
+---
+
 ## Sync anywhere
 
 Tasks stay local by default. Enable a sync adapter when you're ready.
