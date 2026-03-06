@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"testing"
 
 	"github.com/justEstif/todo-open/internal/plugin"
@@ -52,7 +53,7 @@ func TestBuildAdapterRuntimeFromMeta_ValidPluginHandshake(t *testing.T) {
 		}},
 	}
 
-	runtime := BuildAdapterRuntimeFromMeta(meta, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
 	if !runtime.Ready {
 		t.Fatalf("runtime should be ready, errors=%v", runtime.Errors)
 	}
@@ -94,7 +95,7 @@ func TestBuildAdapterRuntimeFromMeta_PluginHandshakeFailure(t *testing.T) {
 		}},
 	}
 
-	runtime := BuildAdapterRuntimeFromMeta(meta, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
 	if runtime.Ready {
 		t.Fatal("runtime should not be ready")
 	}

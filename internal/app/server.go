@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,7 +33,7 @@ func NewServer(addr string) (*http.Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load sync adapters: %w", err)
 	}
-	runtime := BuildAdapterRuntimeFromMeta(meta, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
 	if !runtime.Ready {
 		return nil, fmt.Errorf("adapter initialization failed: %s", strings.Join(runtime.Errors, "; "))
 	}

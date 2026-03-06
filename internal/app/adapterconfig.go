@@ -13,6 +13,8 @@ import (
 	"github.com/justEstif/todo-open/internal/view"
 )
 
+const defaultPluginHandshakeTimeout = 2 * time.Second
+
 // Re-export canonical adapter runtime/config types for app consumers.
 type AdapterConfig = adapters.Config
 type AdapterStatus = adapters.Status
@@ -73,60 +75,52 @@ func validateNames(field string, names []string) error {
 	return nil
 }
 
-func BuildAdapterRuntimeFromMeta(meta WorkspaceMeta, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
+func BuildAdapterRuntimeFromMeta(ctx context.Context, meta WorkspaceMeta, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
+	resolver := newAdapterRuntimeResolver(viewRegistry, syncRegistry, newPluginProbe(defaultPluginHandshakeTimeout))
+	return resolver.Resolve(ctx, meta)
+}
+
+type pluginProbe struct {
+	loader *plugin.Loader
+}
+
+func newPluginProbe(handshakeTimeout time.Duration) pluginProbe {
+	return pluginProbe{loader: plugin.NewLoader(handshakeTimeout)}
+}
+
+func (p pluginProbe) probe(ctx context.Context, cfg AdapterPluginConfig) error {
+	def := plugin.Definition{Name: cfg.Name, Kind: cfg.Kind, Command: cfg.Command, Args: cfg.Args}
+	loaded, err := p.loader.Load(ctx, def)
+	if err != nil {
+		return err
+	}
+	return loaded.Close()
+}
+
+type adapterRuntimeResolver struct {
+	viewRegistry *view.Registry
+	syncRegistry *syncadapter.Registry
+	probe        pluginProbe
+}
+
+func newAdapterRuntimeResolver(viewRegistry *view.Registry, syncRegistry *syncadapter.Registry, probe pluginProbe) adapterRuntimeResolver {
+	return adapterRuntimeResolver{viewRegistry: viewRegistry, syncRegistry: syncRegistry, probe: probe}
+}
+
+func (r adapterRuntimeResolver) Resolve(ctx context.Context, meta WorkspaceMeta) AdapterRuntime {
 	cfg := AdapterConfig{
 		EnabledViews:        meta.EnabledViews,
 		EnabledSyncAdapters: meta.EnabledSyncAdapters,
 	}
-	runtime := BuildAdapterRuntime(cfg, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntime(cfg, r.viewRegistry, r.syncRegistry)
 
 	pluginByKey := map[string]AdapterPluginConfig{}
 	for _, p := range meta.AdapterPlugins {
 		pluginByKey[string(p.Kind)+":"+p.Name] = p
 	}
 
-	loader := plugin.NewLoader(2 * time.Second)
-	for _, name := range meta.EnabledViews {
-		if _, err := viewRegistry.Get(name); err == nil {
-			continue
-		}
-		p, ok := pluginByKey[string(plugin.AdapterKindView)+":"+name]
-		if !ok {
-			continue
-		}
-		def := plugin.Definition{Name: p.Name, Kind: p.Kind, Command: p.Command, Args: p.Args}
-		loaded, err := loader.Load(context.Background(), def)
-		if err != nil {
-			runtime.Ready = false
-			runtime.Errors = append(runtime.Errors, fmt.Sprintf("view plugin %q failed startup handshake: %v", name, err))
-			upsertStatus(&runtime, AdapterStatus{Kind: "view", Name: name, Source: "plugin", Enabled: true, Healthy: false, Message: "plugin handshake failed"})
-			continue
-		}
-		_ = loaded.Close()
-		removeMissingRegistrationError(&runtime, "view", name)
-		upsertStatus(&runtime, AdapterStatus{Kind: "view", Name: name, Source: "plugin", Enabled: true, Healthy: true, Message: "plugin handshake ok"})
-	}
-
-	for _, name := range meta.EnabledSyncAdapters {
-		if _, err := syncRegistry.Get(name); err == nil {
-			continue
-		}
-		p, ok := pluginByKey[string(plugin.AdapterKindSync)+":"+name]
-		if !ok {
-			continue
-		}
-		def := plugin.Definition{Name: p.Name, Kind: p.Kind, Command: p.Command, Args: p.Args}
-		loaded, err := loader.Load(context.Background(), def)
-		if err != nil {
-			runtime.Ready = false
-			runtime.Errors = append(runtime.Errors, fmt.Sprintf("sync plugin %q failed startup handshake: %v", name, err))
-			upsertStatus(&runtime, AdapterStatus{Kind: "sync", Name: name, Source: "plugin", Enabled: true, Healthy: false, Message: "plugin handshake failed"})
-			continue
-		}
-		_ = loaded.Close()
-		removeMissingRegistrationError(&runtime, "sync", name)
-		upsertStatus(&runtime, AdapterStatus{Kind: "sync", Name: name, Source: "plugin", Enabled: true, Healthy: true, Message: "plugin handshake ok"})
-	}
+	r.resolvePluginBacked(ctx, &runtime, pluginByKey, plugin.AdapterKindView, meta.EnabledViews)
+	r.resolvePluginBacked(ctx, &runtime, pluginByKey, plugin.AdapterKindSync, meta.EnabledSyncAdapters)
 
 	sort.Slice(runtime.Status, func(i, j int) bool {
 		if runtime.Status[i].Kind == runtime.Status[j].Kind {
@@ -137,6 +131,42 @@ func BuildAdapterRuntimeFromMeta(meta WorkspaceMeta, viewRegistry *view.Registry
 	runtime.Ready = len(runtime.Errors) == 0
 
 	return runtime
+}
+
+func (r adapterRuntimeResolver) resolvePluginBacked(ctx context.Context, runtime *AdapterRuntime, pluginByKey map[string]AdapterPluginConfig, kind plugin.AdapterKind, enabled []string) {
+	kindText := string(kind)
+	for _, name := range enabled {
+		if r.isBuiltinRegistered(kind, name) {
+			continue
+		}
+
+		p, ok := pluginByKey[kindText+":"+name]
+		if !ok {
+			continue
+		}
+
+		if err := r.probe.probe(ctx, p); err != nil {
+			runtime.Errors = append(runtime.Errors, fmt.Sprintf("%s plugin %q failed startup handshake: %v", kindText, name, err))
+			upsertStatus(runtime, AdapterStatus{Kind: kindText, Name: name, Source: "plugin", Enabled: true, Healthy: false, Message: "plugin handshake failed"})
+			continue
+		}
+
+		removeMissingRegistrationError(runtime, kindText, name)
+		upsertStatus(runtime, AdapterStatus{Kind: kindText, Name: name, Source: "plugin", Enabled: true, Healthy: true, Message: "plugin handshake ok"})
+	}
+}
+
+func (r adapterRuntimeResolver) isBuiltinRegistered(kind plugin.AdapterKind, name string) bool {
+	switch kind {
+	case plugin.AdapterKindView:
+		_, err := r.viewRegistry.Get(name)
+		return err == nil
+	case plugin.AdapterKindSync:
+		_, err := r.syncRegistry.Get(name)
+		return err == nil
+	default:
+		return false
+	}
 }
 
 func upsertStatus(runtime *AdapterRuntime, status AdapterStatus) {

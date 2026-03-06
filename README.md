@@ -99,7 +99,7 @@ Useful flags for `todoopen web`:
 
 Sync is opt-in. The built-in default adapter is `noop`, so tasks stay local by default.
 
-The sync adapter interface and registry are implemented, but end-to-end sync execution routes are still roadmap work. Treat this section as extension guidance for contributors, not current end-user functionality.
+Sync adapters are part of the current runtime model: register built-ins or install plugins, then enable them in `.todoopen/meta.json`.
 
 To add sync, implement the adapter interface:
 

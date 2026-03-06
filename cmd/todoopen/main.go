@@ -228,7 +228,7 @@ func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	runtime := app.BuildAdapterRuntimeFromMeta(meta, viewRegistry, syncRegistry)
+	runtime := app.BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
 	if *asJSON {
 		printJSON(stdout, runtime)
 	} else {
