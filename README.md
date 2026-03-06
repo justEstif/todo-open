@@ -17,9 +17,12 @@ Run a local Go server. Store tasks as plain JSONL. Sync anywhere, view in any to
 ### Install via mise (recommended)
 
 ```sh
-mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest
-todoopen --help
+mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@v0.1.2
+mise reshim
+todoopen --version
 ```
+
+Use a pinned release tag instead of `@latest` so Go module proxy lag does not leave you on an older build.
 
 ### Build from source
 
@@ -27,7 +30,7 @@ todoopen --help
 git clone https://github.com/justEstif/todo-open.git
 cd todo-open
 go build ./cmd/todoopen
-./todoopen --help
+./todoopen --version
 ```
 
 ### Verify it works

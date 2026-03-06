@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -63,8 +64,18 @@ func runHelp(stdout io.Writer) int {
 }
 
 func runVersion(stdout io.Writer) int {
-	fmt.Fprintf(stdout, "todoopen %s\n", version)
+	fmt.Fprintf(stdout, "todoopen %s\n", resolvedVersion())
 	return 0
+}
+
+func resolvedVersion() string {
+	if version != "" && version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
 }
 
 func runHealth(args []string, stdout io.Writer, stderr io.Writer) int {
