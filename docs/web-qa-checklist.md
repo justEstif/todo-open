@@ -15,7 +15,7 @@ Open `http://127.0.0.1:8080/`.
 ## Smoke checks
 
 - [ ] Page loads without console errors
-- [ ] CSS and JS load from `/static/simple.css` and `/static/app.js`
+- [ ] CSS and JS load from `/static/app.css` and `/static/app.js`
 - [ ] Task list section renders with initial status text
 
 ## Task CRUD checks

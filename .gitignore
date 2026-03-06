@@ -1,2 +1,4 @@
 /todoopen
 /todoopen-server
+/.todoopen/meta.json
+/tasks.jsonl

@@ -28,17 +28,20 @@ func TestWebAppStaticSurface(t *testing.T) {
 	if !strings.Contains(html, "todo.open") {
 		t.Fatalf("index missing app title")
 	}
-	if !strings.Contains(html, "/static/simple.css") || !strings.Contains(html, "/static/app.js") {
+	if !strings.Contains(html, "/static/app.css") || !strings.Contains(html, "/static/app.js") {
 		t.Fatalf("index missing static asset references")
 	}
+	if !strings.Contains(html, "runtime-status") {
+		t.Fatalf("index missing runtime status element")
+	}
 
-	resp = mustGet(t, ts.URL+"/static/simple.css")
+	resp = mustGet(t, ts.URL+"/static/app.css")
 	if got := resp.StatusCode; got != http.StatusOK {
-		t.Fatalf("GET /static/simple.css status=%d want=%d", got, http.StatusOK)
+		t.Fatalf("GET /static/app.css status=%d want=%d", got, http.StatusOK)
 	}
 	css := readBody(t, resp)
-	if !strings.Contains(css, "--accent") {
-		t.Fatalf("simple.css appears incomplete")
+	if !strings.Contains(css, "--brand") {
+		t.Fatalf("app.css appears incomplete")
 	}
 
 	resp = mustGet(t, ts.URL+"/static/app.js")

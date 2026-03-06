@@ -3,52 +3,96 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f6f7" />
     <title>todo.open</title>
-    <link rel="stylesheet" href="/static/simple.css" />
-    <style>
-      :root { --gap: 0.75rem; }
-      main { padding-bottom: 4rem; }
-      .row { display: flex; gap: var(--gap); align-items: center; }
-      .grow { flex: 1; }
-      ul.tasks { list-style: none; padding: 0; margin: 0; }
-      ul.tasks li { border: 1px solid var(--accent-bg); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem; }
-      .muted { opacity: 0.7; font-size: 0.9rem; }
-      .danger { background: #b00020; border-color: #b00020; }
-      @media (min-width: 800px) {
-        .shell { max-width: 720px; margin: 0 auto; }
-      }
-    </style>
+    <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body>
-    <main class="shell">
-      <h1>todo.open</h1>
+    <a class="skip-link" href="#main-content">Skip to Main Content</a>
 
-      <section>
-        <h2>New task</h2>
-        <form id="create-form" class="row">
-          <input id="create-title" class="grow" type="text" placeholder="What needs doing?" required />
-          <button type="submit">Add</button>
+    <header class="site-header">
+      <div class="container">
+        <p class="eyebrow">Local-First Tasking</p>
+        <h1>todo.open</h1>
+        <p class="subtitle">Plan focused work with a fast, no-distraction workflow.</p>
+        <p id="runtime-status" class="runtime-status" aria-live="polite">Checking Server…</p>
+      </div>
+    </header>
+
+    <main id="main-content" class="container layout">
+      <section class="panel panel-capture" aria-labelledby="capture-title">
+        <h2 id="capture-title">Quick Capture</h2>
+        <form id="create-form" class="capture-form" autocomplete="off">
+          <label for="create-title">Task Title</label>
+          <div class="row">
+            <input
+              id="create-title"
+              name="title"
+              class="grow"
+              type="text"
+              autocomplete="off"
+              placeholder="Draft launch announcement…"
+              required
+            />
+            <button id="create-submit" type="submit">Add Task</button>
+          </div>
+          <p id="create-error" class="field-error" aria-live="polite"></p>
         </form>
       </section>
 
-      <section>
-        <h2>Tasks</h2>
-        <p id="status" class="muted">Loading...</p>
-        <ul id="task-list" class="tasks"></ul>
-      </section>
+      <section class="panel panel-list" aria-labelledby="tasks-title">
+        <div class="panel-heading">
+          <h2 id="tasks-title">Tasks</h2>
+          <p id="status" class="status" aria-live="polite">Loading…</p>
+        </div>
+        <form id="filter-form" class="filters" autocomplete="off">
+          <div class="filter-field">
+            <label for="query-input">Search</label>
+            <input
+              id="query-input"
+              name="query"
+              type="search"
+              autocomplete="off"
+              placeholder="Search titles…"
+            />
+          </div>
 
-      <section>
-        <h2>Edit</h2>
-        <form id="edit-form">
-          <input id="edit-id" type="hidden" />
-          <label for="edit-title">Title</label>
-          <input id="edit-title" type="text" required />
-          <div class="row">
-            <button type="submit">Save</button>
-            <button id="delete-btn" class="danger" type="button">Delete</button>
+          <div class="filter-field">
+            <label for="status-filter">Status</label>
+            <select id="status-filter" name="status">
+              <option value="all">All</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="sort-select">Sort</label>
+            <select id="sort-select" name="sort">
+              <option value="updated_desc">Recently Updated</option>
+              <option value="updated_asc">Least Recently Updated</option>
+              <option value="title_asc">Title A-Z</option>
+            </select>
           </div>
         </form>
+        <ul id="task-list" class="tasks" aria-label="Task list"></ul>
       </section>
+
+      <aside class="panel panel-edit" aria-labelledby="edit-title-heading">
+        <h2 id="edit-title-heading">Selected Task</h2>
+        <form id="edit-form" autocomplete="off">
+          <input id="edit-id" type="hidden" name="id" />
+          <label for="edit-title">Title</label>
+          <input id="edit-title" name="edit_title" type="text" autocomplete="off" required />
+          <p id="selected-meta" class="muted">Choose a task from the list to edit details.</p>
+          <p id="edit-error" class="field-error" aria-live="polite"></p>
+          <div class="row row-actions">
+            <button id="edit-submit" type="submit">Save Changes</button>
+            <button id="delete-btn" class="danger" type="button">Delete Task</button>
+          </div>
+        </form>
+      </aside>
     </main>
 
     <script src="/static/app.js" defer></script>
