@@ -19,6 +19,8 @@ import (
 	"github.com/justEstif/todo-open/internal/core"
 )
 
+var version = "dev"
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -31,6 +33,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	switch args[0] {
 	case "-h", "--help", "help":
 		return runHelp(stdout)
+	case "-v", "--version", "version":
+		return runVersion(stdout)
 	case "validate":
 		return runValidate(args[1:], stdout, stderr)
 	case "task":
@@ -49,11 +53,17 @@ func runHelp(stdout io.Writer) int {
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "Usage:")
 	fmt.Fprintln(stdout, "  todoopen --help")
+	fmt.Fprintln(stdout, "  todoopen --version")
 	fmt.Fprintln(stdout, "  todoopen [--server URL]                # health check")
 	fmt.Fprintln(stdout, "  todoopen web [--addr ADDR] [--no-open] # launch web app")
 	fmt.Fprintln(stdout, "  todoopen validate [flags]")
 	fmt.Fprintln(stdout, "  todoopen task <create|list|get|update|delete> [flags]")
 	fmt.Fprintln(stdout, "  todoopen adapters [--workspace PATH] [--json]")
+	return 0
+}
+
+func runVersion(stdout io.Writer) int {
+	fmt.Fprintf(stdout, "todoopen %s\n", version)
 	return 0
 }
 

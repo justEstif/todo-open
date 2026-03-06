@@ -57,7 +57,7 @@ jobs:
             server_name="${server_name}.exe"
           fi
 
-          GOOS="${GOOS}" GOARCH="${GOARCH}" go build -o "dist/${cli_name}" ./cmd/todoopen
+          GOOS="${GOOS}" GOARCH="${GOARCH}" go build -ldflags "-X main.version=${GITHUB_REF_NAME}" -o "dist/${cli_name}" ./cmd/todoopen
           GOOS="${GOOS}" GOARCH="${GOARCH}" go build -o "dist/${server_name}" ./cmd/todoopen-server
 
           archive_base="todo-open_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"

@@ -111,6 +111,30 @@ func TestHelpCommand(t *testing.T) {
 	if !strings.Contains(out.String(), "todoopen web") {
 		t.Fatalf("help output missing web command: %s", out.String())
 	}
+	if !strings.Contains(out.String(), "todoopen --version") {
+		t.Fatalf("help output missing version command: %s", out.String())
+	}
+}
+
+func TestVersionCommand(t *testing.T) {
+	t.Parallel()
+
+	oldVersion := version
+	version = "v1.2.3"
+	t.Cleanup(func() { version = oldVersion })
+
+	var out bytes.Buffer
+	var errBuf bytes.Buffer
+	code := run([]string{"--version"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("unexpected stderr: %s", errBuf.String())
+	}
+	if strings.TrimSpace(out.String()) != "todoopen v1.2.3" {
+		t.Fatalf("unexpected version output: %s", out.String())
+	}
 }
 
 func TestAdaptersCommand_ShowsSourceForBuiltins(t *testing.T) {
