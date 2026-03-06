@@ -138,7 +138,7 @@ Example adapters you could build or contribute:
 - **S3** — backup to object storage
 - **custom** — anything with a `Push`/`Pull` contract
 
-Reference implementations are maintained in a separate examples repository.
+Reference implementations are maintained in a separate examples repository. Git sync example: [`../todo-open-git-sync`](../todo-open-git-sync).
 
 ---
 
