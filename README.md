@@ -4,7 +4,7 @@
 [![Status](https://img.shields.io/badge/status-MVP-blue)](https://github.com/justEstif/todo-open/blob/main/docs/mvp.md)
 [![Storage](https://img.shields.io/badge/storage-JSONL-6f42c1)](https://github.com/justEstif/todo-open/blob/main/docs/schema.md)
 
-**Your tasks. Your machine. Your format.**
+**A local-first task runtime with a stable API contract — CLI, web, and agent-friendly.**
 
 Most task apps lock your data on their servers — gone if they shut down. Plain-text systems like todo.txt flip this but sacrifice usability. todo.open does neither.
 
