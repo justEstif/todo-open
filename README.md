@@ -159,7 +159,7 @@ flowchart TD
 - [x] CLI client
 - [x] Web UI
 - [x] Pluggable sync and view adapter contracts
-- [ ] Git sync adapter (reference implementation)
+- [x] Git sync adapter (reference implementation)
 - [ ] TUI client
 - [ ] Packaged binaries (`.deb`, `.apk`, `.exe`, `.dmg`)
 - [ ] Desktop app
@@ -177,17 +177,3 @@ mise run test
 ```
 
 Common tasks: `mise run fmt` · `mise run vet` · `mise run test` · `mise run build`
-
----
-
-## Docs
-
-| Doc                                          | Description                     |
-| -------------------------------------------- | ------------------------------- |
-| [Architecture](docs/architecture.md)         | System design and principles    |
-| [Adapters](docs/adapters.md)                 | View and sync adapter contracts |
-| [API](docs/api.md)                           | HTTP API reference              |
-| [Schema](docs/schema.md)                     | JSONL task schema               |
-| [Sync](docs/sync.md)                         | Sync design decisions           |
-| [Testing](docs/testing.md)                   | Test and release strategy       |
-| [Coding Standards](docs/coding-standards.md) | Code conventions                |
