@@ -146,6 +146,18 @@ todoopen task list --json | mlr --json filter '$status == "open"'
 
 ---
 
+## Human + Agent Workflows
+
+todo-open is designed for both humans and agents to work together on the same task list with clear boundaries and safety guarantees.
+
+Humans control task creation, prioritization, and scope decisions, while agents autonomously claim work, execute tasks, and report outcomes. This separation ensures that business value remains human-directed while execution can be automated.
+
+Agents use a coordination API with leases, heartbeats, and ETag-based concurrency control to safely work alongside humans. Dependencies automatically flow through the system - when an agent completes a task, any dependent tasks immediately become available for other agents to claim.
+
+For the full interaction model, safety constraints, and workflow examples, see [docs/human-agent-model.md](docs/human-agent-model.md).
+
+---
+
 ## Roadmap
 
 - [x] Local HTTP API + core domain
