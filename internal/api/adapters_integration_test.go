@@ -9,8 +9,8 @@ import (
 
 	"github.com/justEstif/todo-open/internal/adapters"
 	"github.com/justEstif/todo-open/internal/api"
-	"github.com/justEstif/todo-open/internal/events"
 	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/events"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
 

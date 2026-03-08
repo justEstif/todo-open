@@ -20,8 +20,8 @@ func NewEventEmittingService(inner core.TaskService, broker *Broker) *EventEmitt
 	return &EventEmittingService{inner: inner, broker: broker, nowFn: time.Now}
 }
 
-func (s *EventEmittingService) CreateTask(ctx context.Context, title string) (core.Task, error) {
-	task, err := s.inner.CreateTask(ctx, title)
+func (s *EventEmittingService) CreateTask(ctx context.Context, title string, triggerIDs ...string) (core.Task, error) {
+	task, err := s.inner.CreateTask(ctx, title, triggerIDs...)
 	if err != nil {
 		return task, err
 	}
@@ -82,6 +82,42 @@ func (s *EventEmittingService) ReleaseTask(ctx context.Context, id, agentID stri
 
 func (s *EventEmittingService) SweepExpiredLeases(ctx context.Context) (int, error) {
 	return s.inner.SweepExpiredLeases(ctx)
+}
+
+func (s *EventEmittingService) UpsertTask(ctx context.Context, id, title string, ifMatch *int) (core.Task, bool, error) {
+	task, created, err := s.inner.UpsertTask(ctx, id, title, ifMatch)
+	if err != nil {
+		return task, created, err
+	}
+	if created {
+		s.broker.Publish(Event{Type: TypeCreated, Task: &task, At: s.nowFn().UTC()})
+	} else {
+		s.broker.Publish(Event{Type: TypeUpdated, Task: &task, At: s.nowFn().UTC()})
+	}
+	return task, created, nil
+}
+
+func (s *EventEmittingService) PatchStatus(ctx context.Context, id string, status core.TaskStatus) (core.Task, error) {
+	old, err := s.inner.GetTask(ctx, id)
+	if err != nil {
+		return core.Task{}, err
+	}
+	task, err := s.inner.PatchStatus(ctx, id, status)
+	if err != nil {
+		return task, err
+	}
+	if task.Status != old.Status {
+		oldStatus := old.Status
+		newStatus := task.Status
+		s.broker.Publish(Event{
+			Type:      TypeStatusChanged,
+			Task:      &task,
+			OldStatus: &oldStatus,
+			NewStatus: &newStatus,
+			At:        s.nowFn().UTC(),
+		})
+	}
+	return task, nil
 }
 
 func (s *EventEmittingService) CompleteTask(ctx context.Context, id string) (core.Task, error) {

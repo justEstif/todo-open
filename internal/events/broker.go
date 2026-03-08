@@ -18,11 +18,11 @@ const (
 
 // Event represents a task domain event.
 type Event struct {
-	Type      string          `json:"type"`
-	Task      *core.Task      `json:"task,omitempty"`
+	Type      string           `json:"type"`
+	Task      *core.Task       `json:"task,omitempty"`
 	OldStatus *core.TaskStatus `json:"old_status,omitempty"`
 	NewStatus *core.TaskStatus `json:"new_status,omitempty"`
-	At        time.Time       `json:"at"`
+	At        time.Time        `json:"at"`
 }
 
 // Broker is an in-process fan-out event broker.

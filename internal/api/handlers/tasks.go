@@ -20,7 +20,9 @@ func NewTaskHandler(svc core.TaskService) *TaskHandler {
 }
 
 type taskPayload struct {
-	Title string `json:"title"`
+	Title      string   `json:"title"`
+	Status     string   `json:"status,omitempty"`
+	TriggerIDs []string `json:"trigger_ids,omitempty"`
 }
 
 type errorResponse struct {
@@ -36,7 +38,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json", "invalid JSON payload")
 		return
 	}
-	task, err := h.svc.CreateTask(r.Context(), payload.Title)
+	task, err := h.svc.CreateTask(r.Context(), payload.Title, payload.TriggerIDs...)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -81,11 +83,53 @@ func (h *TaskHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeTaskJSON(w, http.StatusOK, task)
 }
 
+// Upsert handles PUT /v1/tasks/{id} — idempotent create-or-update.
+func (h *TaskHandler) Upsert(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var payload taskPayload
+	if err := decodeJSON(r, &payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid JSON payload")
+		return
+	}
+
+	var ifMatch *int
+	if hdr := r.Header.Get("If-Match"); hdr != "" {
+		v, err := parseETag(hdr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_etag", "invalid If-Match header")
+			return
+		}
+		ifMatch = &v
+	}
+
+	task, created, err := h.svc.UpsertTask(r.Context(), id, payload.Title, ifMatch)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if created {
+		writeTaskJSON(w, http.StatusCreated, task)
+	} else {
+		writeTaskJSON(w, http.StatusOK, task)
+	}
+}
+
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var payload taskPayload
 	if err := decodeJSON(r, &payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json", "invalid JSON payload")
+		return
+	}
+
+	// Status-only idempotent patch.
+	if payload.Title == "" && payload.Status != "" {
+		task, err := h.svc.PatchStatus(r.Context(), id, core.TaskStatus(payload.Status))
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		writeTaskJSON(w, http.StatusOK, task)
 		return
 	}
 

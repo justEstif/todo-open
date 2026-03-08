@@ -1,10 +1,11 @@
 ---
 # go-todo-md-43ep
 title: Design agent primitives contract for task operations
-status: todo
+status: completed
 type: feature
+priority: normal
 created_at: 2026-03-06T02:24:12Z
-updated_at: 2026-03-06T02:24:12Z
+updated_at: 2026-03-08T20:30:33Z
 parent: go-todo-md-9yck
 ---
 

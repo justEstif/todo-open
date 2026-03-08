@@ -23,10 +23,18 @@ type ListFilter struct {
 }
 
 type TaskService interface {
-	CreateTask(ctx context.Context, title string) (Task, error)
+	CreateTask(ctx context.Context, title string, triggerIDs ...string) (Task, error)
 	GetTask(ctx context.Context, id string) (Task, error)
 	ListTasks(ctx context.Context, filter ListFilter) ([]Task, error)
 	UpdateTask(ctx context.Context, id string, title string) (Task, error)
+	// UpsertTask creates or updates a task by client-provided ID.
+	// created=true means the task was newly created (HTTP 201); false means it existed (HTTP 200).
+	// ifMatch, when non-nil, must equal the stored version or ErrConflict is returned.
+	// If the task exists and content is identical, returns (task, false, nil) as a no-op.
+	UpsertTask(ctx context.Context, id, title string, ifMatch *int) (task Task, created bool, err error)
+	// PatchStatus transitions a task's status. If the task already has the requested status, it is
+	// a no-op and returns the current task without bumping the version.
+	PatchStatus(ctx context.Context, id string, status TaskStatus) (Task, error)
 	DeleteTask(ctx context.Context, id string) error
 	CompleteTask(ctx context.Context, id string) (Task, error)
 	// Agent coordination
@@ -63,13 +71,25 @@ func NewService(repo TaskRepository, nowFn func() time.Time, idFn IDGenerator) *
 	return &Service{repo: repo, nowFn: nowFn, idFn: idFn}
 }
 
-func (s *Service) CreateTask(ctx context.Context, title string) (Task, error) {
+func (s *Service) CreateTask(ctx context.Context, title string, triggerIDs ...string) (Task, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return Task{}, fmt.Errorf("title is required: %w", ErrInvalidInput)
 	}
 	now := s.nowFn().UTC()
-	task := Task{ID: s.idFn(), Title: title, Status: TaskStatusOpen, CreatedAt: now, UpdatedAt: now, Version: 1}
+	status := TaskStatusOpen
+	if len(triggerIDs) > 0 {
+		status = TaskStatusPending
+	}
+	task := Task{
+		ID:         s.idFn(),
+		Title:      title,
+		Status:     status,
+		TriggerIDs: triggerIDs,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		Version:    1,
+	}
 	return s.repo.Create(ctx, task)
 }
 
@@ -99,6 +119,79 @@ func (s *Service) ListTasks(ctx context.Context, filter ListFilter) ([]Task, err
 		out = append(out, t)
 	}
 	return out, nil
+}
+
+// UpsertTask creates or updates a task by client-provided ID.
+func (s *Service) UpsertTask(ctx context.Context, id, title string, ifMatch *int) (Task, bool, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Task{}, false, fmt.Errorf("id is required: %w", ErrInvalidInput)
+	}
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return Task{}, false, fmt.Errorf("title is required: %w", ErrInvalidInput)
+	}
+
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return Task{}, false, err
+	}
+
+	if errors.Is(err, ErrNotFound) {
+		// Create new task with client-supplied ID.
+		now := s.nowFn().UTC()
+		task := Task{ID: id, Title: title, Status: TaskStatusOpen, CreatedAt: now, UpdatedAt: now, Version: 1}
+		created, createErr := s.repo.Create(ctx, task)
+		if createErr != nil {
+			return Task{}, false, createErr
+		}
+		return created, true, nil
+	}
+
+	// Task exists — check for no-op.
+	if existing.Title == title && ifMatch == nil {
+		// Content identical, no If-Match required: idempotent no-op.
+		return existing, false, nil
+	}
+
+	// If-Match required for update when content differs.
+	if ifMatch == nil {
+		return Task{}, false, fmt.Errorf("task already exists with different content; provide If-Match to update: %w", ErrConflict)
+	}
+	if existing.Version != *ifMatch {
+		return Task{}, false, fmt.Errorf("ETag mismatch; resource was modified: %w", ErrConflict)
+	}
+
+	now := s.nowFn().UTC()
+	existing.Title = title
+	existing.UpdatedAt = now
+	existing.Version++
+	updated, updateErr := s.repo.Update(ctx, existing)
+	if updateErr != nil {
+		return Task{}, false, updateErr
+	}
+	return updated, false, nil
+}
+
+// PatchStatus transitions a task's status. No-op (returns current task) if status already matches.
+func (s *Service) PatchStatus(ctx context.Context, id string, status TaskStatus) (Task, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Task{}, fmt.Errorf("id is required: %w", ErrInvalidInput)
+	}
+	task, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return Task{}, err
+	}
+	if task.Status == status {
+		// Idempotent no-op.
+		return task, nil
+	}
+	now := s.nowFn().UTC()
+	task.Status = status
+	task.UpdatedAt = now
+	task.Version++
+	return s.repo.Update(ctx, task)
 }
 
 func (s *Service) UpdateTask(ctx context.Context, id string, title string) (Task, error) {
