@@ -18,6 +18,7 @@ import (
 	"github.com/justEstif/todo-open/internal/app"
 	apiclient "github.com/justEstif/todo-open/internal/client/api"
 	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/info"
 	"github.com/justEstif/todo-open/internal/tui"
 )
 
@@ -37,6 +38,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runHelp(stdout)
 	case "-v", "--version", "version":
 		return runVersion(stdout)
+	case "--agent-info", "-A":
+		return runAgentInfo(args[1:], stdout, stderr)
 	case "validate":
 		return runValidate(args[1:], stdout, stderr)
 	case "task":
@@ -58,6 +61,7 @@ func runHelp(stdout io.Writer) int {
 	fmt.Fprintln(stdout, "Usage:")
 	fmt.Fprintln(stdout, "  todoopen --help")
 	fmt.Fprintln(stdout, "  todoopen --version")
+	fmt.Fprintln(stdout, "  todoopen --agent-info [--server URL]   # print agent-info JSON and exit")
 	fmt.Fprintln(stdout, "  todoopen [--server URL]                # health check")
 	fmt.Fprintln(stdout, "  todoopen web [--addr ADDR] [--no-open] # launch web app")
 	fmt.Fprintln(stdout, "  todoopen tui [--addr ADDR] [--server URL] # launch terminal UI")
@@ -69,6 +73,17 @@ func runHelp(stdout io.Writer) int {
 
 func runVersion(stdout io.Writer) int {
 	fmt.Fprintf(stdout, "todoopen %s\n", resolvedVersion())
+	return 0
+}
+
+func runAgentInfo(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("agent-info", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	baseURL := fs.String("server", "http://127.0.0.1:8080", "todo.open server base URL")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	printJSON(stdout, info.Build(resolvedVersion(), *baseURL))
 	return 0
 }
 
