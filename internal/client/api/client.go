@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +13,15 @@ import (
 
 	"github.com/justEstif/todo-open/internal/core"
 )
+
+// TaskEvent is a task mutation event received over the SSE stream.
+type TaskEvent struct {
+	Type      string           `json:"type"`
+	Task      *core.Task       `json:"task,omitempty"`
+	OldStatus *core.TaskStatus `json:"old_status,omitempty"`
+	NewStatus *core.TaskStatus `json:"new_status,omitempty"`
+	At        time.Time        `json:"at"`
+}
 
 type Client struct {
 	baseURL string
@@ -107,6 +118,39 @@ func (c *Client) UpdateTask(id string, title string) (core.Task, error) {
 	return out, nil
 }
 
+func (c *Client) CompleteTask(id string) (core.Task, error) {
+	resp, err := c.doJSON(http.MethodPost, "/v1/tasks/"+id+"/complete", struct{}{})
+	if err != nil {
+		return core.Task{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return core.Task{}, decodeAPIError(resp)
+	}
+	var out core.Task
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return core.Task{}, err
+	}
+	return out, nil
+}
+
+func (c *Client) PatchTaskStatus(id, status string) (core.Task, error) {
+	payload := map[string]string{"status": status}
+	resp, err := c.doJSON(http.MethodPatch, "/v1/tasks/"+id, payload)
+	if err != nil {
+		return core.Task{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return core.Task{}, decodeAPIError(resp)
+	}
+	var out core.Task
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return core.Task{}, err
+	}
+	return out, nil
+}
+
 func (c *Client) DeleteTask(id string) error {
 	resp, err := c.doJSON(http.MethodDelete, "/v1/tasks/"+id, nil)
 	if err != nil {
@@ -117,6 +161,56 @@ func (c *Client) DeleteTask(id string) error {
 		return decodeAPIError(resp)
 	}
 	return nil
+}
+
+// SubscribeEvents connects to the SSE event stream and returns a channel of
+// TaskEvents. The caller must call the returned cancel func to stop the stream
+// and release the underlying connection. Events are dropped if the channel is
+// full (buffer 64); the caller should read promptly.
+func (c *Client) SubscribeEvents(ctx context.Context) (<-chan TaskEvent, func(), error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/tasks/events", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	ch := make(chan TaskEvent, 64)
+	cancel := func() {
+		resp.Body.Close()
+	}
+
+	go func() {
+		defer close(ch)
+		scanner := bufio.NewScanner(resp.Body)
+		var dataLine string
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "data: ") {
+				dataLine = strings.TrimPrefix(line, "data: ")
+			} else if line == "" && dataLine != "" {
+				var e TaskEvent
+				if err := json.Unmarshal([]byte(dataLine), &e); err == nil {
+					select {
+					case ch <- e:
+					default:
+					}
+				}
+				dataLine = ""
+			}
+		}
+	}()
+
+	return ch, cancel, nil
 }
 
 func (c *Client) doJSON(method string, path string, payload any) (*http.Response, error) {
