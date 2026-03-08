@@ -24,6 +24,7 @@ func NewRouterWithIdempotency(taskService core.TaskService, adapterRuntime adapt
 	index := web.IndexHandler()
 
 	mux.HandleFunc("GET /healthz", handlers.Health)
+	mux.HandleFunc("GET /v1/capabilities", handlers.Capabilities)
 	mux.HandleFunc("GET /v1/adapters", adapterH.List)
 	mux.HandleFunc("GET /v1/tasks/events", eventsH.Stream)
 	mux.HandleFunc("GET /v1/tasks/next", tasks.NextTask)
