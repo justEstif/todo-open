@@ -1,23 +1,8 @@
 # todo.open
 
-**A local-first task server with an open API. Your tasks live on disk. Any tool — CLI, agent, or script — talks to the same endpoint.**
+**A local-first task server with CLI, TUI, and web UI. Your tasks are plain JSONL on disk — no database, no lock-in.**
 
-```sh
-# human creates a task
-todoopen task create --title "Refactor auth module" --priority high
-# Created task_a1b2: Refactor auth module
-
-# agent picks it up
-curl -s localhost:8080/v1/tasks/next
-curl -s -X POST localhost:8080/v1/tasks/task_a1b2/claim -H 'X-Idempotency-Key: run-42'
-
-# human checks progress
-todoopen task list
-# ID          TITLE                  STATUS       HELD BY
-# task_a1b2   Refactor auth module   in_progress  agent-claude (expires 4m)
-```
-
-Tasks are stored as plain `tasks.jsonl` — one JSON object per line. A local HTTP server exposes them over a stable REST + SSE API. Agents get a lease system and idempotency keys; humans always stay in control.
+Think todo.txt, but with a real API, live interfaces, and an adapter system you can extend.
 
 → **[todo-open.pages.dev](https://justestif.github.io/todo-open)** for full docs and install instructions.
 
@@ -37,6 +22,10 @@ git clone https://github.com/justEstif/todo-open.git
 cd todo-open && go build ./cmd/todoopen ./cmd/todoopen-server
 ```
 
+---
+
+## Quick start
+
 Start the server and open the web UI:
 
 ```sh
@@ -44,15 +33,23 @@ todoopen web
 # Server listening on http://127.0.0.1:8080
 ```
 
-Or use the terminal UI (starts the server automatically, just like `web`):
+Or use the terminal UI:
 
 ```sh
 todoopen tui
 # Server listening · TUI connected
-
-# point at an existing server
-todoopen tui --server http://127.0.0.1:8080
 ```
+
+Or just use the CLI:
+
+```sh
+todoopen task create --title "Refactor auth module" --priority high
+todoopen task list
+# ID          TITLE                  STATUS      PRIORITY
+# task_a1b2   Refactor auth module   open        high
+```
+
+All three interfaces talk to the same local server and stay in sync via SSE.
 
 ---
 
@@ -65,65 +62,22 @@ todoopen tui --server http://127.0.0.1:8080
    (REST + SSE)
          │
    ┌─────┼──────────────┬──────────┐
-  CLI   web UI        TUI      AI agents
-       (live SSE)  (live SSE)  /v1/tasks/next
+  CLI   web UI        TUI      adapters
+       (live SSE)  (live SSE)  sync/view
 ```
 
-- **Plain files** — `tasks.jsonl`, readable in any editor, no database
+- **Plain files** — `tasks.jsonl`, readable in any editor, `grep`-able, no database
 - **Open API** — full REST + Server-Sent Events; `curl` is a valid client
-- **Agent-safe** — lease system, heartbeats, idempotency keys; human can always override
-- **Live UI** — web UI and terminal UI both receive real-time task updates over SSE
-- **Terminal UI** — `todoopen-tui` is a Bubble Tea client: list, create, edit, navigate deps, all from the terminal
+- **Three UIs** — CLI, web, and a Bubble Tea TUI — all ship out of the box
+- **Live updates** — web UI and TUI receive real-time task updates over SSE
 
----
-
-## Agent usage
-
-An **agent skill** is available for one-line install into any supported agent:
-
-```bash
-npx skills add justestif/todo-open -g -y
-```
-
-Browse skills at [skills.sh](https://skills.sh).
-
----
-
-Run `todoopen --agent-info` (or `-A`) to get a JSON description of the tool, all endpoints, task schema, and the recommended workflow — useful for agents to orient themselves before making any API calls:
-
-```bash
-todoopen --agent-info
-todoopen --agent-info --server http://host:9090   # custom server URL
-```
-
----
-
-## Agent API
-
-```sh
-# get the full self-describing agent contract (no server needed)
-todoopen --agent-info
-todoopen --agent-info --server http://host:9090   # custom server URL
-todoopen -A                                        # short form
-
-# discover the contract from a running server
-curl -s localhost:8080/v1/capabilities | jq .agent
-
-# next unclaimed task → claim → heartbeat → complete
-curl -s localhost:8080/v1/tasks/next
-curl -s -X POST localhost:8080/v1/tasks/{id}/claim -H 'X-Idempotency-Key: run-42'
-curl -s -X POST localhost:8080/v1/tasks/{id}/heartbeat
-curl -s -X POST localhost:8080/v1/tasks/{id}/complete
-
-# watch live events
-curl -s localhost:8080/v1/tasks/events
-```
+![web UI screenshot](docs/ui-screenshot.png)
 
 ---
 
 ## Adapters
 
-Adapters are separate binaries that extend sync and view behavior. Install only what you need.
+Adapters extend todo.open with custom sync backends and view renderers. They're separate binaries — write them in any language.
 
 | Adapter | Kind | What it does |
 |---|---|---|
@@ -132,7 +86,12 @@ Adapters are separate binaries that extend sync and view behavior. Install only 
 | `todoopen-adapter-view-markdown` | view | Render tasks as `TASKS.md` |
 | *build your own* | sync/view | Any language, any backend |
 
-Configure adapters in `.todoopen/config.toml`:
+The contracts are small — implement `Name()` and one or two methods:
+
+- **View adapters**: `RenderTasks(ctx, []Task) ([]byte, error)`
+- **Sync adapters**: `Push(ctx, []Task) error` and `Pull(ctx) ([]Task, error)`
+
+Configure in `.todoopen/config.toml`:
 
 ```toml
 [adapters.git]
@@ -147,16 +106,46 @@ See [docs/adapters.md](docs/adapters.md) to build your own.
 
 ---
 
+## Agent support
+
+todo.open also has primitives for AI agent coordination — leases, heartbeats, idempotency keys — so agents can safely pick up and work on tasks without stepping on each other or on you.
+
+```sh
+# agent discovers available work
+curl -s localhost:8080/v1/tasks/next
+
+# claim with idempotency
+curl -s -X POST localhost:8080/v1/tasks/{id}/claim -H 'X-Idempotency-Key: run-42'
+
+# heartbeat to maintain lease
+curl -s -X POST localhost:8080/v1/tasks/{id}/heartbeat
+
+# complete the task
+curl -s -X POST localhost:8080/v1/tasks/{id}/complete
+```
+
+An agent skill is available for one-line install:
+
+```bash
+npx skills add justestif/todo-open -g -y
+```
+
+Run `todoopen --agent-info` (or `-A`) for a machine-readable description of all endpoints and the recommended workflow.
+
+See [docs/agent-primitives.md](docs/agent-primitives.md) for the full coordination contract.
+
+---
+
 ## Documentation
 
 | Doc | What it covers |
 |---|---|
 | [docs/api.md](docs/api.md) | Full REST + SSE API reference |
-| [docs/adapters.md](docs/adapters.md) | Adapter protocol and how to build your own |
 | [docs/schema.md](docs/schema.md) | Task schema, JSONL format, field definitions |
+| [docs/adapters.md](docs/adapters.md) | Adapter protocol and how to build your own |
 | [docs/agent-primitives.md](docs/agent-primitives.md) | Agent coordination contract |
-| [docs/human-ux-invariants.md](docs/human-ux-invariants.md) | Human-first UX rules and CLI contract |
 | [docs/architecture.md](docs/architecture.md) | Internal design and package layout |
+| [docs/human-ux-invariants.md](docs/human-ux-invariants.md) | Human-first UX rules and CLI contract |
 
 ---
 

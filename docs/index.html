@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>todo.open — local-first task server for humans and agents</title>
+  <title>todo.open — local-first task server with CLI, TUI, and web UI</title>
   <link rel="stylesheet" href="https://unpkg.com/missing.css@1.2.0">
   <style>
     :root {
@@ -260,6 +260,19 @@
       margin-block-start: 0.5rem;
     }
 
+    /* ── Screenshot ── */
+    .screenshot {
+      margin-block-start: 2rem;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--graphical-fg);
+    }
+
+    .screenshot img {
+      width: 100%;
+      display: block;
+    }
+
     /* ── Footer ── */
     footer {
       text-align: center;
@@ -279,10 +292,10 @@
     <a class="logo" href="#">todo.open</a>
     <nav>
       <a href="#install">Install</a>
+      <a href="#interfaces">Interfaces</a>
       <a href="#how-it-works">How it works</a>
       <a href="#adapters">Adapters</a>
       <a href="#agents">Agents</a>
-      <a href="#configure">Configure</a>
       <a href="https://github.com/justEstif/todo-open" class="github-link" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </header>
@@ -293,8 +306,8 @@
     <section class="hero">
       <h1>todo.open</h1>
       <p class="tagline">
-        A local-first task server with an open API.<br>
-        Your tasks live on disk. Any tool — CLI, agent, or script — talks to the same endpoint.
+        A local-first task server with CLI, TUI, and web UI.<br>
+        Your tasks are plain JSONL on disk — no database, no lock-in.
       </p>
 
       <div class="terminal">
@@ -303,80 +316,29 @@
           <span class="dot-yellow"></span>
           <span class="dot-green"></span>
         </div>
-        <pre><span class="comment"># human creates a task</span>
-<span class="prompt">$</span> <span class="cmd">todoopen task create</span> <span class="flag">--title</span> <span class="string">"Refactor auth module"</span> <span class="flag">--priority</span> high
+        <pre><span class="prompt">$</span> <span class="cmd">todoopen task create</span> <span class="flag">--title</span> <span class="string">"Refactor auth module"</span> <span class="flag">--priority</span> high
 <span class="ok">Created task_a1b2: Refactor auth module</span>
 
-<span class="comment"># agent picks it up and claims it</span>
-<span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/next <span class="punct">|</span> jq <span class="string">'.id'</span>
-<span class="val">"task_a1b2"</span>
-<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/claim <span class="flag">-H</span> <span class="string">'X-Idempotency-Key: run-42'</span>
-
-<span class="comment"># human checks progress</span>
 <span class="prompt">$</span> <span class="cmd">todoopen task list</span>
-<span class="muted">ID          TITLE                  STATUS       HELD BY</span>
-<span class="val">task_a1b2</span>   Refactor auth module   in_progress  agent-claude (expires 4m)</pre>
+<span class="muted">ID          TITLE                  STATUS      PRIORITY</span>
+<span class="val">task_a1b2</span>   Refactor auth module   open        high
+
+<span class="comment"># open the web UI</span>
+<span class="prompt">$</span> <span class="cmd">todoopen web</span>
+<span class="ok">Server listening on http://127.0.0.1:8080</span>
+
+<span class="comment"># or the terminal UI</span>
+<span class="prompt">$</span> <span class="cmd">todoopen tui</span>
+<span class="ok">Server listening · TUI connected</span></pre>
       </div>
 
       <nav class="anchor-nav">
         <a href="#install">Install</a>
+        <a href="#interfaces">Interfaces</a>
         <a href="#how-it-works">How it works</a>
         <a href="#adapters">Adapters</a>
         <a href="#agents">Agents</a>
-        <a href="#configure">Configure</a>
       </nav>
-    </section>
-
-    <!-- How it works -->
-    <section id="how-it-works">
-      <h2 class="section-title">How it works</h2>
-      <p class="section-sub">One server. One API. Everything else is a client.</p>
-
-      <div class="terminal">
-        <div class="terminal-bar">
-          <span class="dot-red"></span>
-          <span class="dot-yellow"></span>
-          <span class="dot-green"></span>
-        </div>
-        <pre><span class="muted">  ┌──────────────────────────────────────────┐
-  │           .todoopen/tasks.jsonl          │  ← plain text, yours forever
-  └──────────────────┬───────────────────────┘
-                     │
-          ┌──────────▼──────────┐
-          │   todoopen server   │  ← local HTTP, :8080
-          │   (REST + SSE)      │
-          └──┬───┬──────┬───────┘
-             │   │      │
-    ┌─────────┘   │      └──────────────┐
-    │         ┌───┴──────┐              │
-┌───▼───┐  ┌──▼─────┐ ┌──▼──────┐  ┌───▼──────────┐
-│  CLI  │  │ web UI │ │   TUI   │  │  AI agents   │
-│       │  │  SSE ✓ │ │  SSE ✓  │  │  /tasks/next │
-└───────┘  └────────┘ └─────────┘  └──────────────┘</span></pre>
-      </div>
-
-      <div class="cards" style="margin-block-start: 2rem;">
-        <div class="box">
-          <strong class="titlebar">Plain files</strong>
-          <p>Tasks are stored as <code>tasks.jsonl</code> — one JSON object per line. No database, no daemon to manage, no lock-in. Open the file in any editor.</p>
-        </div>
-        <div class="box">
-          <strong class="titlebar">Open API</strong>
-          <p>Full REST + Server-Sent Events API. Any tool that can speak HTTP can create, claim, watch, and complete tasks. Inspect it with <code>curl</code>.</p>
-        </div>
-        <div class="box">
-          <strong class="titlebar">Agent-safe</strong>
-          <p>Built-in lease system prevents two agents from claiming the same task. Idempotency keys make retries safe. Human can always override.</p>
-        </div>
-        <div class="box">
-          <strong class="titlebar">Live updates</strong>
-          <p>The web UI and <code>todoopen-tui</code> terminal UI both subscribe to <code>/v1/tasks/events</code> via SSE — task changes appear instantly without polling.</p>
-        </div>
-        <div class="box">
-          <strong class="titlebar">Terminal UI</strong>
-          <p><code>todoopen tui</code> is a Bubble Tea client: browse tasks, create, inline-edit, navigate dependencies — all from the terminal. Starts the server automatically or connects to an existing one.</p>
-        </div>
-      </div>
     </section>
 
     <!-- Install -->
@@ -416,7 +378,7 @@
         </div>
       </div>
 
-      <p style="margin-block-start: 1.5rem;">Then start the server and open the web UI:</p>
+      <p style="margin-block-start: 1.5rem;">Then start the server:</p>
 
       <div class="terminal">
         <div class="terminal-bar">
@@ -426,11 +388,60 @@
         </div>
         <button class="copy-btn" data-copy="todoopen web">copy</button>
         <pre><span class="prompt">$</span> <span class="cmd">todoopen web</span>
-<span class="ok">Server listening on http://127.0.0.1:8080</span>
-<span class="muted">Workspace: /home/user/projects/myapp/.todoopen</span></pre>
+<span class="ok">Server listening on http://127.0.0.1:8080</span></pre>
+      </div>
+    </section>
+
+    <!-- Interfaces -->
+    <section id="interfaces">
+      <h2 class="section-title">Three interfaces, one API</h2>
+      <p class="section-sub">CLI, web UI, and TUI all talk to the same local server. All stay in sync via SSE.</p>
+
+      <div class="cards">
+        <div class="box">
+          <strong class="titlebar">CLI</strong>
+          <p>Create, list, update, and complete tasks from the command line. Scriptable, pipeable, fast.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Web UI</strong>
+          <p>Browser-based interface with live SSE updates. Quick capture, search, filter, inline edit. No page reloads.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Terminal UI</strong>
+          <p>A Bubble Tea TUI: browse, create, edit, navigate deps — all from the terminal. Starts the server automatically.</p>
+        </div>
       </div>
 
-      <p style="margin-block-start: 1.5rem;">Prefer the terminal? Use the TUI — it starts the server automatically, just like <code>web</code>:</p>
+      <div class="screenshot">
+        <img src="ui-screenshot.png" alt="todo.open web UI screenshot showing task list, quick capture, and edit panel">
+      </div>
+
+      <div class="terminal" style="margin-block-start: 2rem;">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <pre><span class="comment"># CLI</span>
+<span class="prompt">$</span> <span class="cmd">todoopen task create</span> <span class="flag">--title</span> <span class="string">"Write tests"</span> <span class="flag">--priority</span> high
+<span class="prompt">$</span> <span class="cmd">todoopen task list</span>
+<span class="prompt">$</span> <span class="cmd">todoopen task done</span> task_a1b2
+
+<span class="comment"># Web UI</span>
+<span class="prompt">$</span> <span class="cmd">todoopen web</span>
+
+<span class="comment"># TUI</span>
+<span class="prompt">$</span> <span class="cmd">todoopen tui</span>
+
+<span class="comment"># or point any of them at an existing server</span>
+<span class="prompt">$</span> <span class="cmd">todoopen tui</span> <span class="flag">--server</span> http://127.0.0.1:8080</pre>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how-it-works">
+      <h2 class="section-title">How it works</h2>
+      <p class="section-sub">One server. Plain files. Everything else is a client.</p>
 
       <div class="terminal">
         <div class="terminal-bar">
@@ -438,19 +449,40 @@
           <span class="dot-yellow"></span>
           <span class="dot-green"></span>
         </div>
-        <button class="copy-btn" data-copy="todoopen tui">copy</button>
-        <pre><span class="prompt">$</span> <span class="cmd">todoopen tui</span>
-<span class="muted">j/k navigate · e edit · n new · d done · ? help</span>
+        <pre><span class="muted">  .todoopen/tasks.jsonl      ← plain text, yours forever
+           │
+     todoopen server         ← local HTTP :8080
+     (REST + SSE)
+           │
+     ┌─────┼──────────────┬──────────┐
+    CLI   web UI        TUI      adapters
+         (live SSE)  (live SSE)  sync/view</span></pre>
+      </div>
 
-<span class="comment"># point at an existing server instead</span>
-<span class="prompt">$</span> <span class="cmd">todoopen tui</span> <span class="flag">--server</span> http://127.0.0.1:8080</pre>
+      <div class="cards" style="margin-block-start: 2rem;">
+        <div class="box">
+          <strong class="titlebar">Plain files</strong>
+          <p>Tasks are stored as <code>tasks.jsonl</code> — one JSON object per line. No database, no daemon to manage. Open the file in any editor, <code>grep</code> it, version it.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Open API</strong>
+          <p>Full REST + Server-Sent Events. Any tool that can speak HTTP can create, query, and watch tasks. <code>curl</code> is a valid client.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Live updates</strong>
+          <p>Web UI and TUI subscribe to <code>/v1/tasks/events</code> via SSE — task changes appear instantly without polling.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Your data</strong>
+          <p>No cloud dependency, no account required. Tasks stay on your filesystem. Export is just copying a file.</p>
+        </div>
       </div>
     </section>
 
     <!-- Adapters -->
     <section id="adapters">
       <h2 class="section-title">Adapters</h2>
-      <p class="section-sub">Adapters are separate binaries that extend sync and view behavior. Install only what you need.</p>
+      <p class="section-sub">Extend sync and view behavior with separate binaries. Write them in any language.</p>
 
       <table>
         <thead>
@@ -484,168 +516,33 @@
         </tbody>
       </table>
 
-      <p style="margin-block-start: 1.5rem;">Install an adapter the same way as the CLI:</p>
+      <p style="margin-block-start: 1.5rem;">The contracts are small — implement <code>Name()</code> and one or two methods:</p>
 
-      <div class="tab-group">
+      <div class="terminal" style="margin-block-start: 1rem;">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <pre><span class="comment">// View adapter — render tasks however you want</span>
+<span class="cmd">Name()</span> <span class="val">string</span>
+<span class="cmd">RenderTasks(ctx, []Task)</span> <span class="val">([]byte, error)</span>
+
+<span class="comment">// Sync adapter — push/pull to any backend</span>
+<span class="cmd">Name()</span> <span class="val">string</span>
+<span class="cmd">Push(ctx, []Task)</span> <span class="val">error</span>
+<span class="cmd">Pull(ctx)</span> <span class="val">([]Task, error)</span></pre>
+      </div>
+
+      <p style="margin-block-start: 1.5rem;">Configure in <code>.todoopen/config.toml</code>:</p>
+
+      <div class="tab-group" style="margin-block-start: 1rem;">
         <div class="tab-buttons">
-          <button class="tab-btn active" data-tab="tab-adp-npm">npm</button>
-          <button class="tab-btn" data-tab="tab-adp-mise">mise</button>
-        </div>
-
-        <div id="tab-adp-npm" class="tab-panel active">
-          <div class="terminal" style="border-radius: 0;">
-            <button class="copy-btn" data-copy="npm install -g @justestif/todoopen-adapter-sync-git">copy</button>
-            <pre><span class="prompt">$</span> <span class="cmd">npm install -g</span> @justestif/todoopen-adapter-sync-git</pre>
-          </div>
-        </div>
-
-        <div id="tab-adp-mise" class="tab-panel">
-          <div class="terminal" style="border-radius: 0;">
-            <button class="copy-btn" data-copy="mise use -g go:github.com/justEstif/todo-open/adapters/todoopen-adapter-sync-git@latest&#10;mise reshim">copy</button>
-            <pre><span class="prompt">$</span> <span class="cmd">mise use -g</span> go:github.com/justEstif/todo-open/adapters/todoopen-adapter-sync-git@latest
-<span class="prompt">$</span> <span class="cmd">mise reshim</span></pre>
-          </div>
-        </div>
-      </div>
-
-      <div class="info box" style="margin-block-start: 1.5rem;">
-        Adapters are completely decoupled — they communicate over stdin/stdout JSON and can be written in any language.
-        See <a href="https://github.com/justEstif/todo-open/blob/main/docs/adapters.md" target="_blank" rel="noopener">adapters.md ↗</a> to build your own.
-      </div>
-    </section>
-
-    <!-- Agents -->
-    <section id="agents">
-      <h2 class="section-title">Agents</h2>
-      <p class="section-sub">todo.open is built for human-agent collaboration. Agents get primitives; humans stay in control.</p>
-
-      <p>The agent workflow: fetch the next unclaimed task, claim it with a lease, send heartbeats while working, complete or release when done.</p>
-
-      <div class="terminal">
-        <div class="terminal-bar">
-          <span class="dot-red"></span>
-          <span class="dot-yellow"></span>
-          <span class="dot-green"></span>
-        </div>
-        <pre><span class="comment"># 1. fetch the next open task</span>
-<span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/next
-<span class="punct">{</span> <span class="key">"id"</span><span class="punct">:</span> <span class="val">"task_a1b2"</span><span class="punct">,</span> <span class="key">"title"</span><span class="punct">:</span> <span class="val">"Refactor auth module"</span><span class="punct">,</span> <span class="key">"status"</span><span class="punct">:</span> <span class="val">"open"</span> <span class="punct">}</span>
-
-<span class="comment"># 2. claim it (lease = 5 min, idempotent)</span>
-<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/claim \
-    <span class="flag">-H</span> <span class="string">'X-Idempotency-Key: run-42'</span> \
-    <span class="flag">-d</span> <span class="string">'{"assignee":"agent-claude"}'</span>
-
-<span class="comment"># 3. heartbeat every 60s to keep the lease alive</span>
-<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/heartbeat
-
-<span class="comment"># 4. complete</span>
-<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/complete</pre>
-      </div>
-
-      <p style="margin-block-start: 1.5rem;">Watch task activity in real time:</p>
-
-      <div class="terminal">
-        <div class="terminal-bar">
-          <span class="dot-red"></span>
-          <span class="dot-yellow"></span>
-          <span class="dot-green"></span>
-        </div>
-        <button class="copy-btn" data-copy="curl -s localhost:8080/v1/tasks/events">copy</button>
-        <pre><span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/events
-<span class="muted">event: task.status_changed
-data: {"id":"task_a1b2","status":"in_progress","assignee":"agent-claude"}
-
-event: task.status_changed
-data: {"id":"task_a1b2","status":"done"}</span></pre>
-      </div>
-
-      <div class="cards" style="margin-block-start: 2rem;">
-        <div class="box">
-          <strong class="titlebar">Lease system</strong>
-          <p>Claims expire automatically. If an agent crashes, the task becomes available again. No manual cleanup.</p>
-        </div>
-        <div class="box">
-          <strong class="titlebar">Idempotent ops</strong>
-          <p>Pass <code>X-Idempotency-Key</code> on mutating requests. Safe to retry without duplicating work.</p>
-        </div>
-        <div class="box">
-          <strong class="titlebar">Human override</strong>
-          <p>Humans can always release an agent's claim. The API and CLI never block human intervention.</p>
-        </div>
-      </div>
-
-      <p style="margin-block-start: 1.5rem;">
-        Get the full self-describing agent contract — no server required:
-      </p>
-
-      <div class="terminal">
-        <div class="terminal-bar">
-          <span class="dot-red"></span>
-          <span class="dot-yellow"></span>
-          <span class="dot-green"></span>
-        </div>
-        <button class="copy-btn" data-copy="todoopen --agent-info | jq .">copy</button>
-        <pre><span class="prompt">$</span> <span class="cmd">todoopen --agent-info</span> <span class="punct">|</span> jq <span class="string">'.'</span>
-<span class="punct">{</span>
-  <span class="key">"tool"</span><span class="punct">:</span>      <span class="punct">{</span> <span class="key">"name"</span><span class="punct">:</span> <span class="val">"todoopen"</span><span class="punct">,</span> <span class="key">"version"</span><span class="punct">:</span> <span class="val">"v0.3.0"</span><span class="punct">,</span> <span class="muted">...</span> <span class="punct">},</span>
-  <span class="key">"server"</span><span class="punct">:</span>    <span class="punct">{</span> <span class="key">"base_url"</span><span class="punct">:</span> <span class="val">"http://127.0.0.1:8080"</span><span class="punct">,</span> <span class="muted">...</span> <span class="punct">},</span>
-  <span class="key">"endpoints"</span><span class="punct">:</span> <span class="punct">{</span> <span class="key">"tasks"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">},</span> <span class="key">"agent"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">},</span> <span class="key">"events"</span><span class="punct">:</span> <span class="val">"..."</span> <span class="punct">},</span>
-  <span class="key">"schema"</span><span class="punct">:</span>    <span class="punct">{</span> <span class="key">"statuses"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">},</span> <span class="key">"priorities"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">}</span> <span class="punct">},</span>
-  <span class="key">"workflow"</span><span class="punct">:</span>  <span class="punct">{</span> <span class="key">"steps"</span><span class="punct">:</span> <span class="punct">[</span> <span class="muted">...</span> <span class="punct">],</span> <span class="key">"lease_ttl_seconds"</span><span class="punct">:</span> <span class="val">300</span> <span class="punct">}</span>
-<span class="punct">}</span>
-
-<span class="comment"># point at a non-default server</span>
-<span class="prompt">$</span> <span class="cmd">todoopen --agent-info</span> <span class="flag">--server</span> http://host:9090</pre>
-      </div>
-
-      <p style="margin-block-start: 1.5rem;">
-        Or discover the contract from a running server:
-      </p>
-
-      <div class="terminal">
-        <div class="terminal-bar">
-          <span class="dot-red"></span>
-          <span class="dot-yellow"></span>
-          <span class="dot-green"></span>
-        </div>
-        <button class="copy-btn" data-copy="curl -s localhost:8080/v1/capabilities | jq .agent">copy</button>
-        <pre><span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/capabilities <span class="punct">|</span> jq .agent
-<span class="punct">{</span>
-  <span class="key">"endpoints"</span><span class="punct">:</span> <span class="punct">{</span>
-    <span class="key">"next"</span><span class="punct">:</span>      <span class="val">"GET  /v1/tasks/next"</span><span class="punct">,</span>
-    <span class="key">"claim"</span><span class="punct">:</span>     <span class="val">"POST /v1/tasks/{id}/claim"</span><span class="punct">,</span>
-    <span class="key">"heartbeat"</span><span class="punct">:</span> <span class="val">"POST /v1/tasks/{id}/heartbeat"</span><span class="punct">,</span>
-    <span class="key">"complete"</span><span class="punct">:</span>  <span class="val">"POST /v1/tasks/{id}/complete"</span>
-  <span class="punct">},</span>
-  <span class="key">"lease_ttl_default_seconds"</span><span class="punct">:</span> <span class="val">300</span>
-<span class="punct">}</span></pre>
-      </div>
-
-      <div class="info box" style="margin-block-start: 1.5rem;">
-        <code>--agent-info</code> requires no running server — agents can call it once at startup to self-configure endpoints, schema values, and the recommended task loop.
-      </div>
-    </section>
-
-    <!-- Configure -->
-    <section id="configure">
-      <h2 class="section-title">Configure</h2>
-      <p class="section-sub">Create <code>.todoopen/config.toml</code> in your workspace. Config is read fresh on every server start — no restart needed for adapter changes.</p>
-
-      <div class="tab-group">
-        <div class="tab-buttons">
-          <button class="tab-btn active" data-tab="tab-cfg-minimal">minimal</button>
-          <button class="tab-btn" data-tab="tab-cfg-git">git sync</button>
+          <button class="tab-btn active" data-tab="tab-cfg-git">git sync</button>
           <button class="tab-btn" data-tab="tab-cfg-full">full example</button>
         </div>
 
-        <div id="tab-cfg-minimal" class="tab-panel active">
-          <pre><code><span class="comment"># .todoopen/config.toml — no adapters, just the server</span>
-[server]
-  addr = "127.0.0.1:8080"</code></pre>
-        </div>
-
-        <div id="tab-cfg-git" class="tab-panel">
+        <div id="tab-cfg-git" class="tab-panel active">
           <pre><code>[adapters.git]
   bin = "todoopen-adapter-sync-git"
 
@@ -674,8 +571,59 @@ data: {"id":"task_a1b2","status":"done"}</span></pre>
         </div>
       </div>
 
-      <div class="ok box" style="margin-block-start: 1.5rem;">
-        Use <code>${VAR}</code> in adapter config values — expanded from the environment at runtime so secrets never live in the file.
+      <div class="info box" style="margin-block-start: 1.5rem;">
+        Adapters communicate over stdin/stdout JSON and can be written in any language.
+        Use <code>${VAR}</code> in config values — expanded from the environment at runtime so secrets never live in the file.
+        See <a href="https://github.com/justEstif/todo-open/blob/main/docs/adapters.md" target="_blank" rel="noopener">adapters.md ↗</a> to build your own.
+      </div>
+    </section>
+
+    <!-- Agents -->
+    <section id="agents">
+      <h2 class="section-title">Agent support</h2>
+      <p class="section-sub">Built-in primitives for AI agent coordination — leases, heartbeats, idempotency keys.</p>
+
+      <p>Agents can safely pick up and work on tasks without stepping on each other or on you. The workflow: fetch next task → claim with a lease → heartbeat while working → complete or release.</p>
+
+      <div class="terminal" style="margin-block-start: 1.5rem;">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <pre><span class="comment"># fetch the next open task</span>
+<span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/next
+<span class="punct">{</span> <span class="key">"id"</span><span class="punct">:</span> <span class="val">"task_a1b2"</span><span class="punct">,</span> <span class="key">"title"</span><span class="punct">:</span> <span class="val">"Refactor auth module"</span> <span class="punct">}</span>
+
+<span class="comment"># claim it (idempotent, lease = 5 min)</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/claim \
+    <span class="flag">-H</span> <span class="string">'X-Idempotency-Key: run-42'</span>
+
+<span class="comment"># heartbeat to keep the lease alive</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/heartbeat
+
+<span class="comment"># complete</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/complete</pre>
+      </div>
+
+      <div class="cards" style="margin-block-start: 2rem;">
+        <div class="box">
+          <strong class="titlebar">Lease system</strong>
+          <p>Claims expire automatically. If an agent crashes, the task becomes available again. No manual cleanup.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Idempotent ops</strong>
+          <p>Pass <code>X-Idempotency-Key</code> on mutating requests. Safe to retry without duplicating work.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Human override</strong>
+          <p>Humans can always release an agent's claim. The API and CLI never block human intervention.</p>
+        </div>
+      </div>
+
+      <div class="info box" style="margin-block-start: 1.5rem;">
+        Run <code>todoopen --agent-info</code> for a machine-readable description of all endpoints and the recommended workflow — no server needed.
+        See <a href="https://github.com/justEstif/todo-open/blob/main/docs/agent-primitives.md" target="_blank" rel="noopener">agent-primitives.md ↗</a> for the full coordination contract.
       </div>
     </section>
 
@@ -697,6 +645,10 @@ data: {"id":"task_a1b2","status":"done"}</span></pre>
           <strong>schema.md ↗</strong>
           <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Task schema, field definitions, status/priority values, JSONL format.</p>
         </a>
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/architecture.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>architecture.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Internal design — package layout, request flow, storage layer.</p>
+        </a>
         <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/human-ux-invariants.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
           <strong>human-ux-invariants.md ↗</strong>
           <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Human-first UX rules, workflow invariants, and CLI output contract.</p>
@@ -704,10 +656,6 @@ data: {"id":"task_a1b2","status":"done"}</span></pre>
         <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/agent-primitives.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
           <strong>agent-primitives.md ↗</strong>
           <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Agent coordination contract — claim, heartbeat, release, idempotency.</p>
-        </a>
-        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/architecture.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
-          <strong>architecture.md ↗</strong>
-          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Internal design — package layout, request flow, storage layer.</p>
         </a>
       </div>
     </section>
