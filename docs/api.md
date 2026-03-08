@@ -35,6 +35,46 @@ Implemented endpoints:
 - `POST /v1/tasks/{id}/complete` — sets status=done and evaluates pending tasks whose trigger_ids are now all done
 - `GET /v1/tasks/events` — Server-Sent Events stream (`Content-Type: text/event-stream`). Emits `task.created`, `task.updated`, `task.deleted`, and `task.status_changed` events in real time after each successful mutation. Each SSE frame uses `id: <task_id>@<version>` for client-side deduplication on reconnect via `Last-Event-ID`.
 
+#### ETag / Optimistic Concurrency
+
+All task mutation responses (`POST`, `GET`, `PATCH`) include an `ETag: "<version>"` response header where `<version>` is the integer version number of the task.
+
+PATCH requests may include an `If-Match: "<version>"` header. If the version does not match the stored task's current version, the server returns `409 Conflict`.
+
+#### Agent Coordination API
+
+Purpose: allow software agents to safely claim, work on, and release tasks. All agent state is ephemeral and stored in `ext["agent"]` — no new top-level task fields.
+
+**Work queue**
+
+- `GET /v1/tasks/next` — returns the single highest-priority unclaimed open task (priority order: critical > high > normal > low). Returns `404` if no unclaimed open tasks exist.
+
+**Claim**
+
+- `POST /v1/tasks/{id}/claim`
+  - Request: `{"agent_id": "agent-xyz", "lease_ttl_seconds": 300}`
+  - Preconditions: task must be `open` AND either have no active claim or have an expired lease.
+  - On success: transitions status `open → in_progress`, sets `ext["agent"]` with `{id, claimed_at, lease_expires_at, heartbeat_at, lease_ttl_seconds}`.
+  - Returns `409 Conflict` if already claimed by another agent with an active lease.
+
+**Heartbeat**
+
+- `POST /v1/tasks/{id}/heartbeat`
+  - Request: `{"agent_id": "agent-xyz"}`
+  - Extends `lease_expires_at` by the original `lease_ttl_seconds` and updates `heartbeat_at`.
+  - Returns `403 Forbidden` if `agent_id` does not match the current claim.
+
+**Release**
+
+- `POST /v1/tasks/{id}/release`
+  - Request: `{"agent_id": "agent-xyz"}`
+  - Transitions `in_progress → open` and clears `ext["agent"]`.
+  - Returns `403 Forbidden` if `agent_id` does not match the current claim.
+
+**Lease sweeper**
+
+A background goroutine runs every 30 seconds on the server. It finds all `in_progress` tasks where `ext["agent"]["lease_expires_at"]` is in the past and transitions them back to `open`, clearing `ext["agent"]`. Each expiry is logged.
+
 ### B. Admin/Operations API
 
 Purpose: lightweight operational visibility for local deployment.

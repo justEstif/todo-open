@@ -48,10 +48,23 @@ func NewServer(addr string) (*http.Server, error) {
 	broker := events.NewBroker()
 	taskService := events.NewEventEmittingService(core.NewService(repo, time.Now, nil), broker)
 
-	return &http.Server{
+	// Start the lease sweeper background goroutine. It stops when the server context is cancelled.
+	// We use context.Background() here; the sweeper will be stopped via server shutdown in main.
+	sweeperCtx, sweeperCancel := context.WithCancel(context.Background())
+
+	srv := &http.Server{
 		Addr:    addr,
 		Handler: api.NewRouter(taskService, runtime, broker),
-	}, nil
+	}
+
+	StartLeaseSweeper(sweeperCtx, taskService, 30*time.Second)
+
+	// Wrap srv.Shutdown to also cancel the sweeper.
+	origShutdown := srv.Shutdown
+	_ = origShutdown // keep linter happy; we set a custom RegisterOnShutdown callback instead
+	srv.RegisterOnShutdown(sweeperCancel)
+
+	return srv, nil
 }
 
 func defaultTaskRepo(workspaceRoot string) core.TaskRepository {

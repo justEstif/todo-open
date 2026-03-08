@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	ErrInvalidInput = errors.New("invalid input")
-	ErrNotFound     = errors.New("task not found")
+	ErrInvalidInput  = errors.New("invalid input")
+	ErrNotFound      = errors.New("task not found")
 	ErrCycleDetected = errors.New("dependency cycle detected")
+	ErrConflict      = errors.New("conflict")
+	ErrForbidden     = errors.New("forbidden")
 )
 
 // ListFilter defines optional filters for listing tasks.
@@ -27,6 +29,13 @@ type TaskService interface {
 	UpdateTask(ctx context.Context, id string, title string) (Task, error)
 	DeleteTask(ctx context.Context, id string) error
 	CompleteTask(ctx context.Context, id string) (Task, error)
+	// Agent coordination
+	NextTask(ctx context.Context) (Task, error)
+	ClaimTask(ctx context.Context, id, agentID string, leaseTTLSeconds int) (Task, error)
+	HeartbeatTask(ctx context.Context, id, agentID string) (Task, error)
+	ReleaseTask(ctx context.Context, id, agentID string) (Task, error)
+	// SweepExpiredLeases transitions in_progress tasks with expired leases back to open.
+	SweepExpiredLeases(ctx context.Context) (int, error)
 }
 
 type IDGenerator func() string

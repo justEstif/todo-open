@@ -54,6 +54,36 @@ func (s *EventEmittingService) DeleteTask(ctx context.Context, id string) error 
 	return nil
 }
 
+func (s *EventEmittingService) NextTask(ctx context.Context) (core.Task, error) {
+	return s.inner.NextTask(ctx)
+}
+
+func (s *EventEmittingService) ClaimTask(ctx context.Context, id, agentID string, leaseTTLSeconds int) (core.Task, error) {
+	task, err := s.inner.ClaimTask(ctx, id, agentID, leaseTTLSeconds)
+	if err != nil {
+		return task, err
+	}
+	s.broker.Publish(Event{Type: TypeUpdated, Task: &task, At: s.nowFn().UTC()})
+	return task, nil
+}
+
+func (s *EventEmittingService) HeartbeatTask(ctx context.Context, id, agentID string) (core.Task, error) {
+	return s.inner.HeartbeatTask(ctx, id, agentID)
+}
+
+func (s *EventEmittingService) ReleaseTask(ctx context.Context, id, agentID string) (core.Task, error) {
+	task, err := s.inner.ReleaseTask(ctx, id, agentID)
+	if err != nil {
+		return task, err
+	}
+	s.broker.Publish(Event{Type: TypeUpdated, Task: &task, At: s.nowFn().UTC()})
+	return task, nil
+}
+
+func (s *EventEmittingService) SweepExpiredLeases(ctx context.Context) (int, error) {
+	return s.inner.SweepExpiredLeases(ctx)
+}
+
 func (s *EventEmittingService) CompleteTask(ctx context.Context, id string) (core.Task, error) {
 	// capture old status before completing
 	old, err := s.inner.GetTask(ctx, id)
