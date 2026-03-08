@@ -576,7 +576,31 @@ data: {"id":"task_a1b2","status":"done"}</span></pre>
       </div>
 
       <p style="margin-block-start: 1.5rem;">
-        Discover the full agent contract at runtime:
+        Get the full self-describing agent contract — no server required:
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <button class="copy-btn" data-copy="todoopen --agent-info | jq .">copy</button>
+        <pre><span class="prompt">$</span> <span class="cmd">todoopen --agent-info</span> <span class="punct">|</span> jq <span class="string">'.'</span>
+<span class="punct">{</span>
+  <span class="key">"tool"</span><span class="punct">:</span>      <span class="punct">{</span> <span class="key">"name"</span><span class="punct">:</span> <span class="val">"todoopen"</span><span class="punct">,</span> <span class="key">"version"</span><span class="punct">:</span> <span class="val">"v0.3.0"</span><span class="punct">,</span> <span class="muted">...</span> <span class="punct">},</span>
+  <span class="key">"server"</span><span class="punct">:</span>    <span class="punct">{</span> <span class="key">"base_url"</span><span class="punct">:</span> <span class="val">"http://127.0.0.1:8080"</span><span class="punct">,</span> <span class="muted">...</span> <span class="punct">},</span>
+  <span class="key">"endpoints"</span><span class="punct">:</span> <span class="punct">{</span> <span class="key">"tasks"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">},</span> <span class="key">"agent"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">},</span> <span class="key">"events"</span><span class="punct">:</span> <span class="val">"..."</span> <span class="punct">},</span>
+  <span class="key">"schema"</span><span class="punct">:</span>    <span class="punct">{</span> <span class="key">"statuses"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">},</span> <span class="key">"priorities"</span><span class="punct">:</span> <span class="punct">{</span> <span class="muted">...</span> <span class="punct">}</span> <span class="punct">},</span>
+  <span class="key">"workflow"</span><span class="punct">:</span>  <span class="punct">{</span> <span class="key">"steps"</span><span class="punct">:</span> <span class="punct">[</span> <span class="muted">...</span> <span class="punct">],</span> <span class="key">"lease_ttl_seconds"</span><span class="punct">:</span> <span class="val">300</span> <span class="punct">}</span>
+<span class="punct">}</span>
+
+<span class="comment"># point at a non-default server</span>
+<span class="prompt">$</span> <span class="cmd">todoopen --agent-info</span> <span class="flag">--server</span> http://host:9090</pre>
+      </div>
+
+      <p style="margin-block-start: 1.5rem;">
+        Or discover the contract from a running server:
       </p>
 
       <div class="terminal">
@@ -596,6 +620,10 @@ data: {"id":"task_a1b2","status":"done"}</span></pre>
   <span class="punct">},</span>
   <span class="key">"lease_ttl_default_seconds"</span><span class="punct">:</span> <span class="val">300</span>
 <span class="punct">}</span></pre>
+      </div>
+
+      <div class="info box" style="margin-block-start: 1.5rem;">
+        <code>--agent-info</code> requires no running server — agents can call it once at startup to self-configure endpoints, schema values, and the recommended task loop.
       </div>
     </section>
 

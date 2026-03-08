@@ -80,7 +80,12 @@ todoopen tui --server http://127.0.0.1:8080
 ## Agent API
 
 ```sh
-# discover the contract
+# get the full self-describing agent contract (no server needed)
+todoopen --agent-info
+todoopen --agent-info --server http://host:9090   # custom server URL
+todoopen -A                                        # short form
+
+# discover the contract from a running server
 curl -s localhost:8080/v1/capabilities | jq .agent
 
 # next unclaimed task → claim → heartbeat → complete
