@@ -7,17 +7,20 @@ import (
 	"github.com/justEstif/todo-open/internal/api/handlers"
 	"github.com/justEstif/todo-open/internal/api/web"
 	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/events"
 )
 
-func NewRouter(taskService core.TaskService, adapterRuntime adapters.Runtime) http.Handler {
+func NewRouter(taskService core.TaskService, adapterRuntime adapters.Runtime, broker *events.Broker) http.Handler {
 	mux := http.NewServeMux()
 	tasks := handlers.NewTaskHandler(taskService)
 	adapters := handlers.NewAdapterHandler(adapterRuntime)
+	eventsH := handlers.NewEventHandler(broker)
 	assets := web.AssetsHandler()
 	index := web.IndexHandler()
 
 	mux.HandleFunc("GET /healthz", handlers.Health)
 	mux.HandleFunc("GET /v1/adapters", adapters.List)
+	mux.HandleFunc("GET /v1/tasks/events", eventsH.Stream)
 	mux.HandleFunc("POST /v1/tasks", tasks.Create)
 	mux.HandleFunc("GET /v1/tasks", tasks.List)
 	mux.HandleFunc("GET /v1/tasks/{id}", tasks.Get)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/justEstif/todo-open/internal/adapters"
 	"github.com/justEstif/todo-open/internal/api"
+	"github.com/justEstif/todo-open/internal/events"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -27,7 +28,7 @@ func TestTaskCRUDCommands(t *testing.T) {
 		i++
 		return id
 	})
-	ts := httptest.NewServer(api.NewRouter(svc, adapters.Runtime{}))
+	ts := httptest.NewServer(api.NewRouter(svc, adapters.Runtime{}, events.NewBroker()))
 	t.Cleanup(ts.Close)
 
 	var out bytes.Buffer

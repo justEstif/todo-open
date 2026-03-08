@@ -9,6 +9,7 @@ import (
 
 	"github.com/justEstif/todo-open/internal/adapters"
 	"github.com/justEstif/todo-open/internal/api"
+	"github.com/justEstif/todo-open/internal/events"
 	"github.com/justEstif/todo-open/internal/core"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -27,7 +28,7 @@ func TestAdaptersStatusEndpoint(t *testing.T) {
 		},
 		Ready: true,
 	}
-	server := httptest.NewServer(api.NewRouter(svc, runtime))
+	server := httptest.NewServer(api.NewRouter(svc, runtime, events.NewBroker()))
 	t.Cleanup(server.Close)
 
 	resp, err := http.Get(server.URL + "/v1/adapters")

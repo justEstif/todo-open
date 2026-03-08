@@ -33,6 +33,7 @@ Implemented endpoints:
 - `PATCH /v1/tasks/{id}`
 - `DELETE /v1/tasks/{id}`
 - `POST /v1/tasks/{id}/complete` — sets status=done and evaluates pending tasks whose trigger_ids are now all done
+- `GET /v1/tasks/events` — Server-Sent Events stream (`Content-Type: text/event-stream`). Emits `task.created`, `task.updated`, `task.deleted`, and `task.status_changed` events in real time after each successful mutation. Each SSE frame uses `id: <task_id>@<version>` for client-side deduplication on reconnect via `Last-Event-ID`.
 
 ### B. Admin/Operations API
 

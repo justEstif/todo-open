@@ -10,6 +10,7 @@ import (
 
 	"github.com/justEstif/todo-open/internal/api"
 	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/events"
 	"github.com/justEstif/todo-open/internal/store/jsonl"
 	"github.com/justEstif/todo-open/internal/store/memory"
 )
@@ -44,11 +45,12 @@ func NewServer(addr string) (*http.Server, error) {
 	}
 
 	repo := defaultTaskRepo(workspaceRoot)
-	taskService := core.NewService(repo, time.Now, nil)
+	broker := events.NewBroker()
+	taskService := events.NewEventEmittingService(core.NewService(repo, time.Now, nil), broker)
 
 	return &http.Server{
 		Addr:    addr,
-		Handler: api.NewRouter(taskService, runtime),
+		Handler: api.NewRouter(taskService, runtime, broker),
 	}, nil
 }
 

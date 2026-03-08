@@ -17,6 +17,12 @@ func (r *responseRecorder) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 }
 
+func (r *responseRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 func (r *responseRecorder) Write(p []byte) (int, error) {
 	if r.status == 0 {
 		r.status = http.StatusOK
