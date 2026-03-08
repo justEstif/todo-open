@@ -356,3 +356,18 @@ Promise.all([loadTasks(), loadRuntime()])
   .catch((err) => {
     setStatus(mapAPIError(err));
   });
+
+// Live updates via SSE — reload task list on any server-side mutation.
+// This keeps the web UI in sync with TUI, CLI, and agent writes without polling.
+(function connectEvents() {
+  const es = new EventSource('/v1/tasks/events');
+  es.addEventListener('task.created', () => loadTasks());
+  es.addEventListener('task.updated', () => loadTasks());
+  es.addEventListener('task.deleted', () => loadTasks());
+  es.addEventListener('task.status_changed', () => loadTasks());
+  es.addEventListener('error', () => {
+    es.close();
+    // Reconnect after 3s — handles server restart or network blip.
+    window.setTimeout(connectEvents, 3000);
+  });
+}());
