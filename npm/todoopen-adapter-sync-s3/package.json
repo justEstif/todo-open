@@ -1,0 +1,22 @@
+{
+  "name": "@justestif/todoopen-adapter-sync-s3",
+  "version": "0.1.0",
+  "description": "todo.open sync adapter — push/pull tasks.jsonl to an S3 bucket",
+  "bin": {
+    "todoopen-adapter-sync-s3": "bin.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "bin.js",
+    "install.js",
+    "bin/"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justEstif/todo-open.git"
+  },
+  "homepage": "https://justestif.github.io/todo-open"
+}

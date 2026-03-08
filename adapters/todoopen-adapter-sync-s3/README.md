@@ -9,6 +9,24 @@ Implements the `todoopen.plugin.v1` protocol over stdin/stdout.
 
 ---
 
+## Install
+
+```sh
+# npm
+npm install -g @justestif/todoopen-adapter-sync-s3
+
+# mise
+mise use -g go:github.com/justEstif/todo-open/adapters/todoopen-adapter-sync-s3@latest
+mise reshim
+
+# build from source
+git clone https://github.com/justEstif/todo-open.git
+cd todo-open
+go build -o todoopen-adapter-sync-s3 ./adapters/todoopen-adapter-sync-s3
+```
+
+---
+
 ## Configuration
 
 Add the adapter to your `.todoopen/config.toml`:
