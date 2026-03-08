@@ -37,11 +37,21 @@ git clone https://github.com/justEstif/todo-open.git
 cd todo-open && go build ./cmd/todoopen ./cmd/todoopen-server
 ```
 
-Start the server:
+Start the server and open the web UI:
 
 ```sh
 todoopen web
 # Server listening on http://127.0.0.1:8080
+```
+
+Or use the terminal UI (starts the server automatically, just like `web`):
+
+```sh
+todoopen tui
+# Server listening · TUI connected
+
+# point at an existing server
+todoopen tui --server http://127.0.0.1:8080
 ```
 
 ---
@@ -54,14 +64,16 @@ todoopen web
    todoopen server         ← local HTTP :8080
    (REST + SSE)
          │
-   ┌─────┼──────────────┐
-  CLI   web UI      AI agents
-                  /v1/tasks/next
+   ┌─────┼──────────────┬──────────┐
+  CLI   web UI        TUI      AI agents
+       (live SSE)  (live SSE)  /v1/tasks/next
 ```
 
 - **Plain files** — `tasks.jsonl`, readable in any editor, no database
 - **Open API** — full REST + Server-Sent Events; `curl` is a valid client
 - **Agent-safe** — lease system, heartbeats, idempotency keys; human can always override
+- **Live UI** — web UI and terminal UI both receive real-time task updates over SSE
+- **Terminal UI** — `todoopen-tui` is a Bubble Tea client: list, create, edit, navigate deps, all from the terminal
 
 ---
 

@@ -345,14 +345,14 @@
           ┌──────────▼──────────┐
           │   todoopen server   │  ← local HTTP, :8080
           │   (REST + SSE)      │
-          └──┬──────┬───────────┘
-             │      │
-    ┌─────────┘      └──────────────┐
-    │                               │
-┌───▼───┐   ┌──────────┐   ┌───────▼──────┐
-│  CLI  │   │  web UI  │   │  AI agents   │
-│       │   │          │   │  /tasks/next │
-└───────┘   └──────────┘   └──────────────┘</span></pre>
+          └──┬───┬──────┬───────┘
+             │   │      │
+    ┌─────────┘   │      └──────────────┐
+    │         ┌───┴──────┐              │
+┌───▼───┐  ┌──▼─────┐ ┌──▼──────┐  ┌───▼──────────┐
+│  CLI  │  │ web UI │ │   TUI   │  │  AI agents   │
+│       │  │  SSE ✓ │ │  SSE ✓  │  │  /tasks/next │
+└───────┘  └────────┘ └─────────┘  └──────────────┘</span></pre>
       </div>
 
       <div class="cards" style="margin-block-start: 2rem;">
@@ -367,6 +367,14 @@
         <div class="box">
           <strong class="titlebar">Agent-safe</strong>
           <p>Built-in lease system prevents two agents from claiming the same task. Idempotency keys make retries safe. Human can always override.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Live updates</strong>
+          <p>The web UI and <code>todoopen-tui</code> terminal UI both subscribe to <code>/v1/tasks/events</code> via SSE — task changes appear instantly without polling.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Terminal UI</strong>
+          <p><code>todoopen tui</code> is a Bubble Tea client: browse tasks, create, inline-edit, navigate dependencies — all from the terminal. Starts the server automatically or connects to an existing one.</p>
         </div>
       </div>
     </section>
@@ -420,6 +428,22 @@
         <pre><span class="prompt">$</span> <span class="cmd">todoopen web</span>
 <span class="ok">Server listening on http://127.0.0.1:8080</span>
 <span class="muted">Workspace: /home/user/projects/myapp/.todoopen</span></pre>
+      </div>
+
+      <p style="margin-block-start: 1.5rem;">Prefer the terminal? Use the TUI — it starts the server automatically, just like <code>web</code>:</p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <button class="copy-btn" data-copy="todoopen tui">copy</button>
+        <pre><span class="prompt">$</span> <span class="cmd">todoopen tui</span>
+<span class="muted">j/k navigate · e edit · n new · d done · ? help</span>
+
+<span class="comment"># point at an existing server instead</span>
+<span class="prompt">$</span> <span class="cmd">todoopen tui</span> <span class="flag">--server</span> http://127.0.0.1:8080</pre>
       </div>
     </section>
 

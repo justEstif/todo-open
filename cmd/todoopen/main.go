@@ -18,6 +18,7 @@ import (
 	"github.com/justEstif/todo-open/internal/app"
 	apiclient "github.com/justEstif/todo-open/internal/client/api"
 	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/tui"
 )
 
 var version = "dev"
@@ -44,6 +45,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runAdapters(args[1:], stdout, stderr)
 	case "web", "gui":
 		return runWeb(args[1:], stdout, stderr)
+	case "tui":
+		return runTui(args[1:], stdout, stderr)
 	default:
 		return runHealth(args, stdout, stderr)
 	}
@@ -57,6 +60,7 @@ func runHelp(stdout io.Writer) int {
 	fmt.Fprintln(stdout, "  todoopen --version")
 	fmt.Fprintln(stdout, "  todoopen [--server URL]                # health check")
 	fmt.Fprintln(stdout, "  todoopen web [--addr ADDR] [--no-open] # launch web app")
+	fmt.Fprintln(stdout, "  todoopen tui [--addr ADDR] [--server URL] # launch terminal UI")
 	fmt.Fprintln(stdout, "  todoopen validate [flags]")
 	fmt.Fprintln(stdout, "  todoopen task <create|list|get|update|delete> [flags]")
 	fmt.Fprintln(stdout, "  todoopen adapters [--workspace PATH] [--json]")
@@ -181,6 +185,47 @@ func runWeb(args []string, stdout io.Writer, stderr io.Writer) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-ctx.Done()
+	return 0
+}
+
+func runTui(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	addr := fs.String("addr", "127.0.0.1:8080", "address to bind local server")
+	baseURL := fs.String("server", "", "use an existing server URL instead of starting one")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	url := *baseURL
+	if url == "" {
+		url = "http://" + *addr
+		srv, err := app.NewServer(*addr)
+		if err != nil {
+			fmt.Fprintf(stderr, "server setup failed: %v\n", err)
+			return 1
+		}
+		go func() {
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				fmt.Fprintf(stderr, "server failed: %v\n", err)
+			}
+		}()
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = srv.Shutdown(ctx)
+		}()
+	}
+
+	if err := waitForHealthy(url, 5*time.Second); err != nil {
+		fmt.Fprintf(stderr, "tui launch failed: %v\n", err)
+		return 1
+	}
+
+	if err := tui.Run(url); err != nil {
+		fmt.Fprintf(stderr, "tui error: %v\n", err)
+		return 1
+	}
 	return 0
 }
 
