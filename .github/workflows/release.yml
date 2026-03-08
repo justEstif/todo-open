@@ -61,14 +61,24 @@ jobs:
           GOOS="${GOOS}" GOARCH="${GOARCH}" go build -ldflags "-X main.version=${GITHUB_REF_NAME}" -o "dist/${cli_name}" ./cmd/todoopen
           GOOS="${GOOS}" GOARCH="${GOARCH}" go build -o "dist/${server_name}" ./cmd/todoopen-server
 
+          # build all adapters
+          for adapter_dir in adapters/*/; do
+            adapter_name=$(basename "$adapter_dir")
+            out_name="${adapter_name}"
+            if [ "${GOOS}" = "windows" ]; then
+              out_name="${out_name}.exe"
+            fi
+            GOOS="${GOOS}" GOARCH="${GOARCH}" go build -o "dist/${out_name}" "./${adapter_dir}"
+          done
+
           archive_base="todo-open_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
           if [ "${EXT}" = "zip" ]; then
             (
               cd dist
-              zip -q "../${archive_base}.zip" "${cli_name}" "${server_name}"
+              zip -q "../${archive_base}.zip" ./*
             )
           else
-            tar -C dist -czf "${archive_base}.tar.gz" "${cli_name}" "${server_name}"
+            tar -C dist -czf "${archive_base}.tar.gz" .
           fi
 
       - name: Upload archive artifact
@@ -124,10 +134,13 @@ jobs:
           TAG=${{ github.ref_name }}
           VERSION=${TAG#v}
 
-          tmp=$(mktemp)
-          jq --arg v "$VERSION" '.version = $v' npm/todo-open/package.json > "$tmp"
-          mv "$tmp" npm/todo-open/package.json
-
-          echo "Publishing @justestif/todo-open@${VERSION}..."
-          cd npm/todo-open
-          npm publish --access public --provenance
+          for pkg_dir in npm/*/; do
+            pkg_name=$(basename "$pkg_dir")
+            tmp=$(mktemp)
+            jq --arg v "$VERSION" '.version = $v' "${pkg_dir}package.json" > "$tmp"
+            mv "$tmp" "${pkg_dir}package.json"
+            echo "Publishing @justestif/${pkg_name}@${VERSION}..."
+            cd "$pkg_dir"
+            npm publish --access public --provenance
+            cd - > /dev/null
+          done
