@@ -33,8 +33,8 @@ type Agent struct {
 		Complete  string `json:"complete"`
 	} `json:"endpoints"`
 	LeaseTTLDefaultSeconds int    `json:"lease_ttl_default_seconds"`
-	IdempotencyHeader     string `json:"idempotency_header"`
-	IdempotencyTTSeconds  int    `json:"idempotency_ttl_seconds"`
+	IdempotencyHeader      string `json:"idempotency_header"`
+	IdempotencyTTSeconds   int    `json:"idempotency_ttl_seconds"`
 }
 
 // Events describes event streaming capabilities

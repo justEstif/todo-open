@@ -148,9 +148,8 @@ func TestHeartbeat(t *testing.T) {
 		t.Fatalf("HeartbeatTask: %v", err)
 	}
 	if hb.Version <= origExpiry {
-		// version incremented
+		t.Errorf("expected heartbeat version > %v, got %v", origExpiry, hb.Version)
 	}
-	_ = hb
 }
 
 func TestHeartbeat_WrongAgent_Returns403(t *testing.T) {

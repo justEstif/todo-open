@@ -35,12 +35,20 @@ type TaskRepo struct {
 	metaPath  string
 }
 
-func NewTaskRepo(rootPath string) *TaskRepo {
-	return &TaskRepo{
+// NewTaskRepo returns a TaskRepo rooted at rootPath. It initialises the
+// workspace directory structure and validates the metadata file on
+// construction, so callers learn about configuration problems immediately
+// rather than on the first read or write.
+func NewTaskRepo(rootPath string) (*TaskRepo, error) {
+	r := &TaskRepo{
 		rootPath:  rootPath,
 		tasksPath: filepath.Join(rootPath, tasksFileName),
 		metaPath:  filepath.Join(rootPath, metaDirName, metaFileName),
 	}
+	if err := r.ensureWorkspace(); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func (r *TaskRepo) Create(_ context.Context, task core.Task) (core.Task, error) {
@@ -116,9 +124,6 @@ func (r *TaskRepo) Update(_ context.Context, task core.Task) (core.Task, error) 
 }
 
 func (r *TaskRepo) withTasksRead(fn func([]core.Task) error) error {
-	if err := r.ensureWorkspace(); err != nil {
-		return err
-	}
 	tasks, err := r.readAllTasks()
 	if err != nil {
 		return err
@@ -127,9 +132,6 @@ func (r *TaskRepo) withTasksRead(fn func([]core.Task) error) error {
 }
 
 func (r *TaskRepo) withTasksMutation(fn func([]core.Task) ([]core.Task, error)) ([]core.Task, error) {
-	if err := r.ensureWorkspace(); err != nil {
-		return nil, err
-	}
 	tasks, err := r.readAllTasks()
 	if err != nil {
 		return nil, err

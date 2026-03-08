@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -22,11 +23,22 @@ type ListFilter struct {
 	IsBlocked bool       // if true, return only tasks that have non-empty blocked_by
 }
 
+// TaskPatch describes a partial update to an existing task.
+// Zero-value fields are treated as "no change".
+type TaskPatch struct {
+	Title  string     // if non-empty, update the task title
+	Status TaskStatus // if non-empty, transition the task status
+}
+
 type TaskService interface {
 	CreateTask(ctx context.Context, title string, triggerIDs ...string) (Task, error)
 	GetTask(ctx context.Context, id string) (Task, error)
 	ListTasks(ctx context.Context, filter ListFilter) ([]Task, error)
 	UpdateTask(ctx context.Context, id, title string, ifMatch *int) (Task, error)
+	// PatchTask applies a partial update to a task. Fields left at their zero
+	// value are ignored. If-Match is enforced when any field is modified.
+	// Status-only patches are idempotent (no version bump when unchanged).
+	PatchTask(ctx context.Context, id string, patch TaskPatch, ifMatch *int) (Task, error)
 	// UpsertTask creates or updates a task by client-provided ID.
 	// created=true means the task was newly created (HTTP 201); false means it existed (HTTP 200).
 	// ifMatch, when non-nil, must equal the stored version or ErrConflict is returned.
@@ -194,19 +206,10 @@ func (s *Service) UpsertTask(ctx context.Context, id, title string, ifMatch *int
 	if ifMatch == nil {
 		return Task{}, false, fmt.Errorf("task already exists with different content; provide If-Match to update: %w", ErrConflict)
 	}
-	if existing.Version != *ifMatch {
-		return Task{}, false, fmt.Errorf("ETag mismatch; resource was modified: %w", ErrConflict)
+	updated, err := s.applyTitleUpdate(ctx, existing, title, ifMatch)
+	if err != nil {
+		return Task{}, false, err
 	}
-
-	now := s.nowFn().UTC()
-	existing.Title = title
-	existing.UpdatedAt = now
-	existing.Version++
-	updated, updateErr := s.repo.Update(ctx, existing)
-	if updateErr != nil {
-		return Task{}, false, updateErr
-	}
-	s.emitMutationEvent("task.updated", &updated, nil, nil)
 	return updated, false, nil
 }
 
@@ -236,25 +239,63 @@ func (s *Service) PatchStatus(ctx context.Context, id string, status TaskStatus)
 	return result, err
 }
 
-func (s *Service) UpdateTask(ctx context.Context, id string, title string, ifMatch *int) (Task, error) {
-	if strings.TrimSpace(id) == "" {
+// PatchTask applies a partial update. Status transitions are idempotent;
+// title updates require If-Match when supplied. Both can be set together.
+func (s *Service) PatchTask(ctx context.Context, id string, patch TaskPatch, ifMatch *int) (Task, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
 		return Task{}, fmt.Errorf("id is required: %w", ErrInvalidInput)
 	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		return Task{}, fmt.Errorf("title is required: %w", ErrInvalidInput)
-	}
-
 	task, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return Task{}, err
 	}
 
-	// ETag enforcement
+	// Apply status change (idempotent).
+	if patch.Status != "" && task.Status != patch.Status {
+		oldStatus := task.Status
+		now := s.nowFn().UTC()
+		task.Status = patch.Status
+		task.UpdatedAt = now
+		task.Version++
+		task, err = s.repo.Update(ctx, task)
+		if err != nil {
+			return Task{}, err
+		}
+		s.emitMutationEvent("task.status_changed", &task, &oldStatus, &patch.Status)
+	}
+
+	// Apply title change (requires If-Match).
+	if patch.Title != "" {
+		task, err = s.applyTitleUpdate(ctx, task, patch.Title, ifMatch)
+		if err != nil {
+			return Task{}, err
+		}
+	}
+
+	return task, nil
+}
+
+func (s *Service) UpdateTask(ctx context.Context, id string, title string, ifMatch *int) (Task, error) {
+	if strings.TrimSpace(id) == "" {
+		return Task{}, fmt.Errorf("id is required: %w", ErrInvalidInput)
+	}
+	task, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return Task{}, err
+	}
+	return s.applyTitleUpdate(ctx, task, title, ifMatch)
+}
+
+// applyTitleUpdate validates, applies, persists a title change on an existing task, and emits the mutation event.
+func (s *Service) applyTitleUpdate(ctx context.Context, task Task, title string, ifMatch *int) (Task, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return Task{}, fmt.Errorf("title is required: %w", ErrInvalidInput)
+	}
 	if ifMatch != nil && task.Version != *ifMatch {
 		return Task{}, fmt.Errorf("ETag mismatch; resource was modified: %w", ErrConflict)
 	}
-
 	task.Title = title
 	task.UpdatedAt = s.nowFn().UTC()
 	task.Version++
@@ -333,13 +374,7 @@ func (s *Service) evaluatePendingTasks(ctx context.Context, completedID string) 
 			continue
 		}
 		// Check if this task depends on the completed task.
-		dependsOnCompleted := false
-		for _, trigID := range t.TriggerIDs {
-			if trigID == completedID {
-				dependsOnCompleted = true
-				break
-			}
-		}
+		dependsOnCompleted := slices.Contains(t.TriggerIDs, completedID)
 		if !dependsOnCompleted {
 			continue
 		}

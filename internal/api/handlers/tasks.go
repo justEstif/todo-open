@@ -122,18 +122,6 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Status-only idempotent patch.
-	if payload.Title == "" && payload.Status != "" {
-		task, err := h.svc.PatchStatus(r.Context(), id, core.TaskStatus(payload.Status))
-		if err != nil {
-			writeServiceError(w, err)
-			return
-		}
-		writeTaskJSON(w, http.StatusOK, task)
-		return
-	}
-
-	// Parse If-Match header for ETag enforcement.
 	var ifMatch *int
 	if hdr := r.Header.Get("If-Match"); hdr != "" {
 		v, err := parseETag(hdr)
@@ -144,7 +132,11 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		ifMatch = &v
 	}
 
-	task, err := h.svc.UpdateTask(r.Context(), id, payload.Title, ifMatch)
+	patch := core.TaskPatch{
+		Title:  payload.Title,
+		Status: core.TaskStatus(payload.Status),
+	}
+	task, err := h.svc.PatchTask(r.Context(), id, patch, ifMatch)
 	if err != nil {
 		writeServiceError(w, err)
 		return

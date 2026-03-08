@@ -19,71 +19,40 @@ type AgentInfo struct {
 }
 
 // getAgentExt extracts the agent claim info from a task's ext map.
-// Returns nil if not present.
+// Returns nil if not present or on decode error.
 func getAgentExt(t Task) *AgentInfo {
-	if t.Ext == nil {
-		return nil
-	}
-	extMap, ok := toMap(t.Ext)
+	raw, ok := t.Ext["agent"]
 	if !ok {
 		return nil
 	}
-	agentRaw, ok := extMap["agent"]
-	if !ok || agentRaw == nil {
-		return nil
-	}
-	// Round-trip through JSON to handle map[string]any.
-	b, err := json.Marshal(agentRaw)
-	if err != nil {
-		return nil
-	}
 	var info AgentInfo
-	if err := json.Unmarshal(b, &info); err != nil {
+	if err := json.Unmarshal(raw, &info); err != nil {
 		return nil
 	}
 	return &info
 }
 
-// setAgentExt sets ext["agent"] on a task's ext map.
+// setAgentExt encodes info and stores it under ext["agent"].
 func setAgentExt(t *Task, info AgentInfo) {
-	extMap := getOrInitExtMap(t)
-	extMap["agent"] = info
-	t.Ext = extMap
+	b, err := json.Marshal(info)
+	if err != nil {
+		return
+	}
+	if t.Ext == nil {
+		t.Ext = make(map[string]json.RawMessage)
+	}
+	t.Ext["agent"] = b
 }
 
-// clearAgentExt removes ext["agent"] from a task's ext map.
+// clearAgentExt removes ext["agent"] from the task, nil-ing the map if empty.
 func clearAgentExt(t *Task) {
-	if t.Ext == nil {
+	if len(t.Ext) == 0 {
 		return
 	}
-	extMap, ok := toMap(t.Ext)
-	if !ok {
-		return
-	}
-	delete(extMap, "agent")
-	if len(extMap) == 0 {
+	delete(t.Ext, "agent")
+	if len(t.Ext) == 0 {
 		t.Ext = nil
-	} else {
-		t.Ext = extMap
 	}
-}
-
-func getOrInitExtMap(t *Task) map[string]any {
-	if t.Ext == nil {
-		return map[string]any{}
-	}
-	m, ok := toMap(t.Ext)
-	if !ok {
-		return map[string]any{}
-	}
-	return m
-}
-
-func toMap(v any) (map[string]any, bool) {
-	if m, ok := v.(map[string]any); ok {
-		return m, true
-	}
-	return nil, false
 }
 
 // priorityRank maps priority to a sort key (higher = more urgent).

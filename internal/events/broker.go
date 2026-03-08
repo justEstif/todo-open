@@ -69,6 +69,18 @@ func (b *Broker) Subscribe(bufSize int) (<-chan Event, func()) {
 	return ch, unsub
 }
 
+// FromMutation converts a core.MutationEvent to a broker Event.
+// Use this at wiring boundaries so the field mapping lives in one place.
+func FromMutation(m core.MutationEvent) Event {
+	return Event{
+		Type:      m.Type,
+		Task:      m.Task,
+		OldStatus: m.OldStatus,
+		NewStatus: m.NewStatus,
+		At:        m.At,
+	}
+}
+
 // Publish fans out an event to all current subscribers.
 // Subscribers that are full drop the event (non-blocking send).
 func (b *Broker) Publish(e Event) {

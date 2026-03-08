@@ -19,7 +19,13 @@ type repoFactory struct {
 func TestTaskRepositoryCreateRejectsDuplicateID(t *testing.T) {
 	factories := []repoFactory{
 		{name: "memory", new: func(_ *testing.T) core.TaskRepository { return memory.NewTaskRepo() }},
-		{name: "jsonl", new: func(t *testing.T) core.TaskRepository { return jsonl.NewTaskRepo(t.TempDir()) }},
+		{name: "jsonl", new: func(t *testing.T) core.TaskRepository {
+			r, err := jsonl.NewTaskRepo(t.TempDir())
+			if err != nil {
+				t.Fatalf("NewTaskRepo: %v", err)
+			}
+			return r
+		}},
 	}
 
 	for _, factory := range factories {

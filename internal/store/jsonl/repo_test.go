@@ -10,11 +10,20 @@ import (
 	"github.com/justEstif/todo-open/internal/core"
 )
 
+func mustNewTaskRepo(t *testing.T, dir string) *TaskRepo {
+	t.Helper()
+	r, err := NewTaskRepo(dir)
+	if err != nil {
+		t.Fatalf("NewTaskRepo: %v", err)
+	}
+	return r
+}
+
 func TestTaskRepoCRUDAndMetaBootstrap(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	repo := NewTaskRepo(dir)
+	repo := mustNewTaskRepo(t, dir)
 	now := time.Date(2026, 3, 5, 20, 0, 0, 0, time.UTC)
 	task := core.Task{ID: "task_1", Title: "one", Status: core.TaskStatusOpen, CreatedAt: now, UpdatedAt: now, Version: 1}
 
@@ -53,17 +62,17 @@ func TestTaskRepoCRUDAndMetaBootstrap(t *testing.T) {
 	if len(items) != 1 || items[0].Title != "updated" {
 		t.Fatalf("unexpected list result: %+v", items)
 	}
-
 }
 
 func TestTaskRepoRejectsCorruptJSONL(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
+	// Write a corrupt tasks file; workspace init must succeed since meta is absent.
+	repo := mustNewTaskRepo(t, dir)
 	if err := os.WriteFile(filepath.Join(dir, "tasks.jsonl"), []byte("{bad json}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	repo := NewTaskRepo(dir)
 	if _, err := repo.List(context.Background()); err == nil {
 		t.Fatal("expected corruption error")
 	}
@@ -81,8 +90,7 @@ func TestTaskRepoRejectsSchemaMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repo := NewTaskRepo(dir)
-	if _, err := repo.List(context.Background()); err == nil {
-		t.Fatal("expected schema mismatch error")
+	if _, err := NewTaskRepo(dir); err == nil {
+		t.Fatal("expected schema mismatch error from NewTaskRepo")
 	}
 }

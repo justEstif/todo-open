@@ -1,6 +1,9 @@
 package core
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type TaskStatus string
 
@@ -46,5 +49,8 @@ type Task struct {
 	Blocking []string `json:"blocking,omitempty"`
 	// BlockedBy lists task IDs that are blocking this task (incoming dependency edges).
 	BlockedBy []string `json:"blocked_by,omitempty"`
-	Ext       any      `json:"ext,omitempty"`
+	// Ext holds extension data keyed by subsystem name (e.g. "agent").
+	// Values are stored as raw JSON so sub-keys can be decoded into typed
+	// structs without a double marshal/unmarshal round-trip.
+	Ext map[string]json.RawMessage `json:"ext,omitempty"`
 }

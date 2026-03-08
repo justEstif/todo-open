@@ -14,20 +14,6 @@ func fixedNow() func() time.Time {
 	return func() time.Time { return t }
 }
 
-func newTestService(ids ...string) (*core.Service, func() string) {
-	repo := memory.NewTaskRepo()
-	i := 0
-	idFn := func() string {
-		if i < len(ids) {
-			id := ids[i]
-			i++
-			return id
-		}
-		return "task_extra"
-	}
-	return core.NewService(repo, fixedNow(), idFn), idFn
-}
-
 func TestCompleteTaskTransitionsPending(t *testing.T) {
 	t.Parallel()
 	repo := memory.NewTaskRepo()

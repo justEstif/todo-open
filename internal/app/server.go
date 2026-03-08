@@ -44,17 +44,14 @@ func NewServer(addr string) (*http.Server, error) {
 		return nil, fmt.Errorf("adapter initialization failed: %s", strings.Join(runtime.Errors, "; "))
 	}
 
-	repo := defaultTaskRepo(workspaceRoot)
+	repo, err := defaultTaskRepo(workspaceRoot)
+	if err != nil {
+		return nil, fmt.Errorf("init task repository: %w", err)
+	}
 	broker := events.NewBroker()
 	taskService := core.NewService(repo, time.Now, nil)
 	taskService.OnMutation(func(e core.MutationEvent) {
-		var event events.Event
-		event.Type = e.Type
-		event.Task = e.Task
-		event.OldStatus = e.OldStatus
-		event.NewStatus = e.NewStatus
-		event.At = e.At
-		broker.Publish(event)
+		broker.Publish(events.FromMutation(e))
 	})
 
 	// Start the lease sweeper background goroutine. It stops when the server context is cancelled.
@@ -67,18 +64,14 @@ func NewServer(addr string) (*http.Server, error) {
 	}
 
 	StartLeaseSweeper(sweeperCtx, taskService, 30*time.Second)
-
-	// Wrap srv.Shutdown to also cancel the sweeper.
-	origShutdown := srv.Shutdown
-	_ = origShutdown // keep linter happy; we set a custom RegisterOnShutdown callback instead
 	srv.RegisterOnShutdown(sweeperCancel)
 
 	return srv, nil
 }
 
-func defaultTaskRepo(workspaceRoot string) core.TaskRepository {
+func defaultTaskRepo(workspaceRoot string) (core.TaskRepository, error) {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("TODOOPEN_STORE")), "memory") {
-		return memory.NewTaskRepo()
+		return memory.NewTaskRepo(), nil
 	}
 	return jsonl.NewTaskRepo(workspaceRoot)
 }
