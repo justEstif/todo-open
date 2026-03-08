@@ -207,13 +207,23 @@ func depRow(id string, tasksByID map[string]core.Task, width int) string {
 	return base.Render(fmt.Sprintf("  %s %s", sym, title)) + "\n"
 }
 
-// renderCreate renders the inline create bar. input is the current text.
-func renderCreate(input string, width int) string {
-	prompt := styleKeyHint.Render("> new task: ")
+// renderInputBar renders a single-line text input bar with a prompt label.
+func renderInputBar(prompt, input string, width int) string {
+	promptStr := styleKeyHint.Render("> " + prompt + ": ")
 	cursor := styleSelected.Render("█")
-	line := prompt + styleValue.Render(input) + cursor
+	line := promptStr + styleValue.Render(input) + cursor
 	return lipgloss.NewStyle().Width(width).Render(line) + "\n" +
 		styleKeys.Render("  enter confirm   esc cancel") + "\n"
+}
+
+// renderCreate renders the inline create bar.
+func renderCreate(input string, width int) string {
+	return renderInputBar("new task", input, width)
+}
+
+// renderEdit renders the inline edit bar pre-filled with the task's current title.
+func renderEdit(input string, width int) string {
+	return renderInputBar("edit title", input, width)
 }
 
 // renderKeyBar renders the bottom key hint bar for the given view.
@@ -222,14 +232,17 @@ func renderKeyBar(v view, width int) string {
 	switch v {
 	case viewList:
 		hints = keyHint("n", "new") + "  " +
+			keyHint("e", "edit") + "  " +
 			keyHint("enter", "detail") + "  " +
 			keyHint("d", "done") + "  " +
-			keyHint("/", "filter") + "  " +
+			keyHint("a/o/D", "filter") + "  " +
 			keyHint("q", "quit")
 	case viewDetail:
 		hints = keyHint("esc", "back") + "  " +
+			keyHint("e", "edit") + "  " +
 			keyHint("d", "done") + "  " +
-			keyHint("enter", "jump dep") + "  " +
+			keyHint("tab", "deps") + "  " +
+			keyHint("enter", "jump") + "  " +
 			keyHint("q", "quit")
 	}
 	return styleKeys.Width(width).Render(" " + hints)

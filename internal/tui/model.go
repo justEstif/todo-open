@@ -58,6 +58,11 @@ type Model struct {
 	creating  bool
 	createBuf string
 
+	// edit bar
+	editing  bool
+	editBuf  string
+	editID   string // ID of the task being edited
+
 	// layout
 	width  int
 	height int
@@ -171,9 +176,12 @@ func (m *Model) setTasks(tasks []core.Task) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Create bar captures all input.
+	// Input bars capture all input first.
 	if m.creating {
 		return m.handleCreateKey(msg)
+	}
+	if m.editing {
+		return m.handleEditKey(msg)
 	}
 
 	switch msg.String() {
@@ -220,9 +228,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "n":
-		if m.view == viewList {
+		if m.view == viewList || m.view == viewDetail {
 			m.creating = true
 			m.createBuf = ""
+		}
+
+	case "e":
+		if len(m.tasks) > 0 {
+			t := m.tasks[m.cursor]
+			m.editing = true
+			m.editBuf = t.Title
+			m.editID = t.ID
 		}
 
 	case "d":
@@ -279,6 +295,47 @@ func (m Model) handleCreateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m Model) handleEditKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.editing = false
+		m.editBuf = ""
+		m.editID = ""
+	case "enter":
+		title := strings.TrimSpace(m.editBuf)
+		id := m.editID
+		m.editing = false
+		m.editBuf = ""
+		m.editID = ""
+		if title != "" {
+			return m, m.editTask(id, title)
+		}
+	case "backspace", "ctrl+h":
+		if len(m.editBuf) > 0 {
+			m.editBuf = m.editBuf[:len(m.editBuf)-1]
+		}
+	default:
+		if len(msg.Runes) > 0 {
+			m.editBuf += string(msg.Runes)
+		}
+	}
+	return m, nil
+}
+
+func (m Model) editTask(id, title string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := m.client.UpdateTask(id, title)
+		if err != nil {
+			return msgError{err}
+		}
+		tasks, err := m.client.ListTasks()
+		if err != nil {
+			return msgError{err}
+		}
+		return msgTasksLoaded(tasks)
+	}
 }
 
 func (m Model) toggleDone() tea.Cmd {
@@ -381,9 +438,12 @@ func (m Model) viewListLayout(header string, innerW, innerH int) string {
 	listContent := renderList(m.tasks, m.cursor, innerW, innerH, m.filter)
 
 	var footer string
-	if m.creating {
+	switch {
+	case m.creating:
 		footer = renderCreate(m.createBuf, innerW)
-	} else {
+	case m.editing:
+		footer = renderEdit(m.editBuf, innerW)
+	default:
 		footer = renderKeyBar(viewList, innerW)
 	}
 
@@ -414,10 +474,18 @@ func (m Model) viewDetailLayout(header string, innerW, innerH int) string {
 		detailContent,
 	)
 
+	var detailFooter string
+	switch {
+	case m.editing:
+		detailFooter = renderEdit(m.editBuf, innerW)
+	default:
+		detailFooter = renderKeyBar(viewDetail, innerW)
+	}
+
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		split,
-		renderKeyBar(viewDetail, innerW),
+		detailFooter,
 	)
 	return styleBorder.Width(m.width-2).Render(body)
 }
