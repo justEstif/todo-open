@@ -3,11 +3,11 @@ package info
 
 // AgentInfo is the top-level structure emitted by todoopen --agent-info.
 type AgentInfo struct {
-	Tool      ToolInfo      `json:"tool"`
-	Server    ServerInfo    `json:"server"`
-	Endpoints EndpointMap   `json:"endpoints"`
-	Schema    SchemaInfo    `json:"schema"`
-	Workflow  WorkflowInfo  `json:"workflow"`
+	Tool      ToolInfo     `json:"tool"`
+	Server    ServerInfo   `json:"server"`
+	Endpoints EndpointMap  `json:"endpoints"`
+	Schema    SchemaInfo   `json:"schema"`
+	Workflow  WorkflowInfo `json:"workflow"`
 }
 
 // ToolInfo describes the binary itself.
@@ -27,8 +27,8 @@ type Flag struct {
 
 // ServerInfo describes how to reach the server.
 type ServerInfo struct {
-	BaseURL     string `json:"base_url"`
-	HealthURL   string `json:"health_url"`
+	BaseURL      string `json:"base_url"`
+	HealthURL    string `json:"health_url"`
 	Capabilities string `json:"capabilities_url"`
 }
 
