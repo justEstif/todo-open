@@ -1,6 +1,6 @@
 {
   "name": "@justestif/todoopen-adapter-sync-git",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "todo.open sync adapter — push/pull tasks.jsonl to a git repo",
   "bin": {
     "todoopen-adapter-sync-git": "bin.js"

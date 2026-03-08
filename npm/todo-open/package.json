@@ -1,6 +1,6 @@
 {
   "name": "@justestif/todo-open",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Local-first task server with an open API — agent-ready, CLI-friendly, your data.",
   "bin": {
     "todoopen": "bin.js",
