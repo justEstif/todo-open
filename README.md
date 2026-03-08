@@ -77,6 +77,27 @@ todoopen tui --server http://127.0.0.1:8080
 
 ---
 
+## Agent usage
+
+An **agent skill** is available for one-line install into any supported agent:
+
+```bash
+npx skills add justestif/todo-open -g -y
+```
+
+Browse skills at [skills.sh](https://skills.sh).
+
+---
+
+Run `todoopen --agent-info` (or `-A`) to get a JSON description of the tool, all endpoints, task schema, and the recommended workflow — useful for agents to orient themselves before making any API calls:
+
+```bash
+todoopen --agent-info
+todoopen --agent-info --server http://host:9090   # custom server URL
+```
+
+---
+
 ## Agent API
 
 ```sh
