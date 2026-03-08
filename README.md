@@ -1,131 +1,47 @@
 # todo.open
 
-[![Go Version](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go)](https://go.dev)
-[![Status](https://img.shields.io/badge/status-MVP-blue)](https://github.com/justEstif/todo-open/blob/main/docs/mvp.md)
-[![Storage](https://img.shields.io/badge/storage-JSONL-6f42c1)](https://github.com/justEstif/todo-open/blob/main/docs/schema.md)
-
-**A local task server with an open API — agent-ready, CLI-friendly, your data.**
+**A local-first task server with an open API. Your tasks live on disk. Any tool — CLI, agent, or script — talks to the same endpoint.**
 
 ```sh
-todoopen task create --title "Ship the release"
-todoopen task list --json
+# human creates a task
+todoopen task create --title "Refactor auth module" --priority high
+# Created task_a1b2: Refactor auth module
+
+# agent picks it up
+curl -s localhost:8080/v1/tasks/next
+curl -s -X POST localhost:8080/v1/tasks/task_a1b2/claim -H 'X-Idempotency-Key: run-42'
+
+# human checks progress
+todoopen task list
+# ID          TITLE                  STATUS       HELD BY
+# task_a1b2   Refactor auth module   in_progress  agent-claude (expires 4m)
 ```
 
-```json
-{
-  "items": [
-    { "id": "task_1", "title": "Ship the release", "status": "open", "priority": "normal" }
-  ]
-}
-```
+Tasks are stored as plain `tasks.jsonl` — one JSON object per line. A local HTTP server exposes them over a stable REST + SSE API. Agents get a lease system and idempotency keys; humans always stay in control.
 
-Tasks are stored as plain JSONL on your machine. A local HTTP server exposes them over a stable API. Any tool — CLI, web UI, agent, or script — talks to the same endpoint.
+→ **[todo-open.pages.dev](https://justestif.github.io/todo-open)** for full docs and install instructions.
 
 ---
 
 ## Install
 
-**mise (recommended):**
-
 ```sh
-mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@v0.1.2
-mise reshim
-todoopen --version
-```
+# npm
+npm install -g @justestif/todo-open
 
-**Build from source:**
+# mise
+mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest && mise reshim
 
-```sh
+# source
 git clone https://github.com/justEstif/todo-open.git
-cd todo-open
-go build ./cmd/todoopen
-./todoopen --version
+cd todo-open && go build ./cmd/todoopen ./cmd/todoopen-server
 ```
 
----
-
-## Usage
+Start the server:
 
 ```sh
-# Start the local server + web UI
 todoopen web
-
-# Manage tasks
-todoopen task create --title "Write release notes"
-todoopen task list
-todoopen task list --json | jq '.items[] | select(.status == "open")'
-
-# Check active adapters
-todoopen adapters
-```
-
-| Flag                    | Description                          |
-| ----------------------- | ------------------------------------ |
-| `--addr 127.0.0.1:8080` | Custom bind address                  |
-| `--no-open`             | Start server without opening browser |
-| `--server http://...`   | Attach CLI to a running server       |
-
----
-
-## Adapters
-
-Adapters extend sync and view behavior without touching core task semantics. Install the ones you need:
-
-| Adapter                  | Kind | What it does                        |
-| ------------------------ | ---- | ----------------------------------- |
-| `todoopen-plugin-sync-git` | sync | Push/pull `tasks.jsonl` to a git repo |
-| *(build your own)*       | sync | Rsync, S3, custom backend           |
-| *(build your own)*       | view | Markdown, TUI, custom renderer      |
-
-Enable adapters in `.todoopen/config.toml`:
-
-```toml
-[views]
-  enabled = ["json", "markdown"]
-
-[sync]
-  enabled = ["noop", "git"]
-
-[adapters.git]
-  bin  = "todoopen-plugin-sync-git"
-  kind = "sync"
-
-[adapters.git.config]
-  remote = "${GIT_REMOTE}"
-  branch = "tasks"
-
-[adapters.markdown]
-  bin  = "todoopen-plugin-view-markdown"
-  kind = "view"
-```
-
-Use `${VAR}` syntax in adapter config values — todo.open expands them from the environment at runtime so secrets never live in the file.
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [docs/adapters.md](docs/adapters.md) | Plugin protocol and sync/view adapter contract |
-| [docs/schema.md](docs/schema.md) | Canonical task record format and validation rules |
-| [docs/api.md](docs/api.md) | HTTP API reference and implementation status |
-| [docs/human-agent-model.md](docs/human-agent-model.md) | Mental model and responsibility boundaries for humans and agents |
-| [docs/human-ux-invariants.md](docs/human-ux-invariants.md) | UX rules and workflows for CLI and TUI implementation |
-| [docs/agent-primitives.md](docs/agent-primitives.md) | Technical contract for agent behavior and endpoints |
-
----
-
-## Your data, your tools
-
-Tasks are JSONL. Pipe them anywhere:
-
-```sh
-# visidata
-todoopen task list --json | vd -f json
-
-# miller
-todoopen task list --json | mlr --json filter '$status == "open"'
+# Server listening on http://127.0.0.1:8080
 ```
 
 ---
@@ -133,64 +49,77 @@ todoopen task list --json | mlr --json filter '$status == "open"'
 ## How it works
 
 ```
-┌─────────────────────────────────────────┐
-│  Clients                                │
-│  CLI · Web UI · TUI · Agents · Scripts  │
-└───────────────┬─────────────────────────┘
-                │ loopback HTTP
-┌───────────────▼─────────────────────────┐
-│  todo.open Server                       │
-│  HTTP API → Core domain → JSONL store   │
-│                         → Sync layer    │
-└───────────────┬─────────────────────────┘
-                │ Push / Pull adapter
-┌───────────────▼─────────────────────────┐
-│  Remote (your choice)                   │
-│  git repo · S3 · rsync · custom         │
-└─────────────────────────────────────────┘
+.todoopen/tasks.jsonl      ← plain text, yours forever
+         │
+   todoopen server         ← local HTTP :8080
+   (REST + SSE)
+         │
+   ┌─────┼──────────────┐
+  CLI   web UI      AI agents
+                  /v1/tasks/next
 ```
 
-- **Local-first** — runs on your machine, no cloud required
-- **Open API** — all clients speak the same loopback HTTP contract
-- **Plain JSONL** — tasks are readable, portable, and version-controllable
-- **Pluggable sync** — push/pull via any adapter binary you point it at
+- **Plain files** — `tasks.jsonl`, readable in any editor, no database
+- **Open API** — full REST + Server-Sent Events; `curl` is a valid client
+- **Agent-safe** — lease system, heartbeats, idempotency keys; human can always override
 
 ---
 
-## Human + Agent Workflows
-
-todo-open is designed for both humans and agents to work together on the same task list with clear boundaries and safety guarantees.
-
-Humans control task creation, prioritization, and scope decisions, while agents autonomously claim work, execute tasks, and report outcomes. This separation ensures that business value remains human-directed while execution can be automated.
-
-Agents use a coordination API with leases, heartbeats, and ETag-based concurrency control to safely work alongside humans. Dependencies automatically flow through the system - when an agent completes a task, any dependent tasks immediately become available for other agents to claim.
-
-For the full interaction model, safety constraints, and workflow examples, see [docs/human-agent-model.md](docs/human-agent-model.md).
-
----
-
-## Roadmap
-
-- [x] Local HTTP API + core domain
-- [x] CLI client
-- [x] Web UI
-- [x] Pluggable sync and view adapter contracts
-- [x] Git sync adapter (reference implementation)
-- [ ] Agent task coordination / real-time sync
-- [ ] TUI client
-- [ ] Packaged binaries (`.deb`, `.apk`, `.exe`, `.dmg`)
-- [ ] Desktop app
-
----
-
-## Contributing
+## Agent API
 
 ```sh
-git clone https://github.com/justEstif/todo-open.git
-cd todo-open
-mise install
-mise run build
-mise run test
+# discover the contract
+curl -s localhost:8080/v1/capabilities | jq .agent
+
+# next unclaimed task → claim → heartbeat → complete
+curl -s localhost:8080/v1/tasks/next
+curl -s -X POST localhost:8080/v1/tasks/{id}/claim -H 'X-Idempotency-Key: run-42'
+curl -s -X POST localhost:8080/v1/tasks/{id}/heartbeat
+curl -s -X POST localhost:8080/v1/tasks/{id}/complete
+
+# watch live events
+curl -s localhost:8080/v1/tasks/events
 ```
 
-Common tasks: `mise run fmt` · `mise run vet` · `mise run test` · `mise run build`
+---
+
+## Adapters
+
+Adapters are separate binaries that extend sync and view behavior. Install only what you need.
+
+| Adapter | Kind | What it does |
+|---|---|---|
+| `todoopen-adapter-sync-git` | sync | Push/pull `tasks.jsonl` to a git repo |
+| `todoopen-adapter-sync-s3` | sync | Sync workspace to S3 |
+| `todoopen-adapter-view-markdown` | view | Render tasks as `TASKS.md` |
+| *build your own* | sync/view | Any language, any backend |
+
+Configure adapters in `.todoopen/config.toml`:
+
+```toml
+[adapters.git]
+  bin = "todoopen-adapter-sync-git"
+
+[adapters.git.config]
+  remote = "${GIT_REMOTE}"   # env vars expanded at runtime
+  branch = "main"
+```
+
+See [docs/adapters.md](docs/adapters.md) to build your own.
+
+---
+
+## Documentation
+
+| Doc | What it covers |
+|---|---|
+| [docs/api.md](docs/api.md) | Full REST + SSE API reference |
+| [docs/adapters.md](docs/adapters.md) | Adapter protocol and how to build your own |
+| [docs/schema.md](docs/schema.md) | Task schema, JSONL format, field definitions |
+| [docs/agent-primitives.md](docs/agent-primitives.md) | Agent coordination contract |
+| [docs/human-ux-invariants.md](docs/human-ux-invariants.md) | Human-first UX rules and CLI contract |
+| [docs/architecture.md](docs/architecture.md) | Internal design and package layout |
+
+---
+
+MIT License

@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>todo.open — local-first task server for humans and agents</title>
+  <link rel="stylesheet" href="https://unpkg.com/missing.css@1.2.0">
+  <style>
+    :root {
+      --accent: #16a34a;
+      --muted-accent: #4ade80;
+      --line-length: 72ch;
+    }
+
+    body {
+      padding-block-end: 4rem;
+    }
+
+    /* ── Nav ── */
+    header.site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+      border-block-end: 1px solid var(--graphical-fg);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    header.site-nav .logo {
+      font-weight: 700;
+      font-size: 1.2rem;
+      text-decoration: none;
+      color: var(--fg);
+      font-family: var(--mono-font);
+    }
+
+    header.site-nav nav {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    header.site-nav nav a {
+      text-decoration: none;
+      color: var(--muted-fg);
+      font-size: 0.9rem;
+    }
+
+    header.site-nav nav a:hover { color: var(--fg); }
+
+    header.site-nav nav a.github-link { color: var(--accent); }
+
+    /* ── Layout ── */
+    main {
+      max-width: var(--line-length);
+      margin-inline: auto;
+      padding-inline: 1.5rem;
+    }
+
+    section {
+      padding-block: 3.5rem;
+      border-block-end: 1px solid var(--graphical-fg);
+    }
+
+    section:last-of-type { border-block-end: none; }
+
+    /* ── Hero ── */
+    .hero {
+      padding-block-start: 4rem;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-family: var(--mono-font);
+      font-size: 3rem;
+      margin-block-end: 0.25rem;
+    }
+
+    .hero .tagline {
+      color: var(--muted-fg);
+      font-size: 1.1rem;
+      margin-block-end: 2.5rem;
+    }
+
+    .hero .terminal { text-align: left; margin-inline: auto; }
+
+    .anchor-nav {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-block-start: 2.5rem;
+    }
+
+    .anchor-nav a {
+      text-decoration: none;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    .anchor-nav a:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    section[id] { scroll-margin-top: 60px; }
+    section:target { outline: none; }
+
+    /* ── Terminal ── */
+    .terminal {
+      background: #0d1117;
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: var(--mono-font);
+      font-size: 0.88rem;
+      position: relative;
+    }
+
+    .terminal-bar {
+      background: #161b22;
+      padding: 0.5rem 1rem;
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.75rem;
+      background: transparent;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      font-family: var(--mono-font);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .copy-btn:hover { background: #161b22; color: #e6edf3; }
+    .copy-btn.copied { color: #3fb950; border-color: #3fb950; }
+
+    .terminal-bar span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .terminal-bar .dot-red    { background: #ff5f57; }
+    .terminal-bar .dot-yellow { background: #febc2e; }
+    .terminal-bar .dot-green  { background: #28c840; }
+
+    .terminal pre {
+      margin: 0;
+      padding: 1.25rem 1.5rem;
+      background: transparent;
+      color: #e6edf3;
+      overflow-x: auto;
+      border: none;
+    }
+
+    .terminal .prompt  { color: #3fb950; }
+    .terminal .cmd     { color: #e6edf3; }
+    .terminal .flag    { color: #79c0ff; }
+    .terminal .string  { color: #a5d6ff; }
+    .terminal .key     { color: #79c0ff; }
+    .terminal .val     { color: #a5d6ff; }
+    .terminal .muted   { color: #8b949e; }
+    .terminal .comment { color: #8b949e; font-style: italic; }
+    .terminal .ok      { color: #3fb950; }
+    .terminal .punct   { color: #8b949e; }
+
+    /* ── Tabs ── */
+    .tab-group {
+      border: 1px solid var(--graphical-fg);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .tab-buttons {
+      display: flex;
+      background: var(--box-bg, var(--interactive-bg));
+      border-block-end: 1px solid var(--graphical-fg);
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1.25rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-family: var(--mono-font);
+      font-size: 0.85rem;
+      color: var(--muted-fg);
+      border-block-end: 2px solid transparent;
+      margin-block-end: -1px;
+    }
+
+    .tab-btn:hover { color: var(--fg); }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-block-end-color: var(--accent);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .tab-panel pre {
+      margin: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    /* ── Table ── */
+    table { width: 100%; }
+    td code, th code { font-size: 0.82rem; }
+
+    .badge {
+      font-size: 0.8rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+    }
+
+    .badge-sync {
+      background: color-mix(in srgb, var(--info-bg, #dbeafe) 60%, transparent);
+      color: var(--info-fg, #1e40af);
+    }
+
+    .badge-view {
+      background: color-mix(in srgb, var(--ok-bg, #dcfce7) 60%, transparent);
+      color: var(--ok-fg, #166534);
+    }
+
+    /* ── Section headings ── */
+    h2.section-title {
+      font-family: var(--mono-font);
+      font-size: 1.4rem;
+      margin-block-end: 0.25rem;
+    }
+
+    .section-sub {
+      color: var(--muted-fg);
+      margin-block-end: 1.75rem;
+    }
+
+    /* ── Cards ── */
+    .cards {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+      margin-block-start: 0.5rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding-block: 2rem;
+      color: var(--muted-fg);
+      font-size: 0.85rem;
+      border-block-start: 1px solid var(--graphical-fg);
+      margin-block-start: 2rem;
+    }
+
+    footer a { color: var(--muted-fg); }
+  </style>
+</head>
+<body>
+
+  <header class="site-nav">
+    <a class="logo" href="#">todo.open</a>
+    <nav>
+      <a href="#install">Install</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#adapters">Adapters</a>
+      <a href="#agents">Agents</a>
+      <a href="#configure">Configure</a>
+      <a href="https://github.com/justEstif/todo-open" class="github-link" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- Hero -->
+    <section class="hero">
+      <h1>todo.open</h1>
+      <p class="tagline">
+        A local-first task server with an open API.<br>
+        Your tasks live on disk. Any tool — CLI, agent, or script — talks to the same endpoint.
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <pre><span class="comment"># human creates a task</span>
+<span class="prompt">$</span> <span class="cmd">todoopen task create</span> <span class="flag">--title</span> <span class="string">"Refactor auth module"</span> <span class="flag">--priority</span> high
+<span class="ok">Created task_a1b2: Refactor auth module</span>
+
+<span class="comment"># agent picks it up and claims it</span>
+<span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/next <span class="punct">|</span> jq <span class="string">'.id'</span>
+<span class="val">"task_a1b2"</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/claim <span class="flag">-H</span> <span class="string">'X-Idempotency-Key: run-42'</span>
+
+<span class="comment"># human checks progress</span>
+<span class="prompt">$</span> <span class="cmd">todoopen task list</span>
+<span class="muted">ID          TITLE                  STATUS       HELD BY</span>
+<span class="val">task_a1b2</span>   Refactor auth module   in_progress  agent-claude (expires 4m)</pre>
+      </div>
+
+      <nav class="anchor-nav">
+        <a href="#install">Install</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#adapters">Adapters</a>
+        <a href="#agents">Agents</a>
+        <a href="#configure">Configure</a>
+      </nav>
+    </section>
+
+    <!-- How it works -->
+    <section id="how-it-works">
+      <h2 class="section-title">How it works</h2>
+      <p class="section-sub">One server. One API. Everything else is a client.</p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <pre><span class="muted">  ┌──────────────────────────────────────────┐
+  │           .todoopen/tasks.jsonl          │  ← plain text, yours forever
+  └──────────────────┬───────────────────────┘
+                     │
+          ┌──────────▼──────────┐
+          │   todoopen server   │  ← local HTTP, :8080
+          │   (REST + SSE)      │
+          └──┬──────┬───────────┘
+             │      │
+    ┌─────────┘      └──────────────┐
+    │                               │
+┌───▼───┐   ┌──────────┐   ┌───────▼──────┐
+│  CLI  │   │  web UI  │   │  AI agents   │
+│       │   │          │   │  /tasks/next │
+└───────┘   └──────────┘   └──────────────┘</span></pre>
+      </div>
+
+      <div class="cards" style="margin-block-start: 2rem;">
+        <div class="box">
+          <strong class="titlebar">Plain files</strong>
+          <p>Tasks are stored as <code>tasks.jsonl</code> — one JSON object per line. No database, no daemon to manage, no lock-in. Open the file in any editor.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Open API</strong>
+          <p>Full REST + Server-Sent Events API. Any tool that can speak HTTP can create, claim, watch, and complete tasks. Inspect it with <code>curl</code>.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Agent-safe</strong>
+          <p>Built-in lease system prevents two agents from claiming the same task. Idempotency keys make retries safe. Human can always override.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install -->
+    <section id="install">
+      <h2 class="section-title">Install</h2>
+      <p class="section-sub">Pick your preferred package manager.</p>
+
+      <div class="tab-group">
+        <div class="tab-buttons">
+          <button class="tab-btn active" data-tab="tab-install-npm">npm</button>
+          <button class="tab-btn" data-tab="tab-install-mise">mise</button>
+          <button class="tab-btn" data-tab="tab-install-source">source</button>
+        </div>
+
+        <div id="tab-install-npm" class="tab-panel active">
+          <div class="terminal" style="border-radius: 0;">
+            <button class="copy-btn" data-copy="npm install -g @justestif/todo-open">copy</button>
+            <pre><span class="prompt">$</span> <span class="cmd">npm install -g</span> @justestif/todo-open</pre>
+          </div>
+        </div>
+
+        <div id="tab-install-mise" class="tab-panel">
+          <div class="terminal" style="border-radius: 0;">
+            <button class="copy-btn" data-copy="mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest&#10;mise reshim">copy</button>
+            <pre><span class="prompt">$</span> <span class="cmd">mise use -g</span> go:github.com/justEstif/todo-open/cmd/todoopen@latest
+<span class="prompt">$</span> <span class="cmd">mise reshim</span></pre>
+          </div>
+        </div>
+
+        <div id="tab-install-source" class="tab-panel">
+          <div class="terminal" style="border-radius: 0;">
+            <button class="copy-btn" data-copy="git clone https://github.com/justEstif/todo-open.git&#10;cd todo-open&#10;go build ./cmd/todoopen ./cmd/todoopen-server">copy</button>
+            <pre><span class="prompt">$</span> <span class="cmd">git clone</span> https://github.com/justEstif/todo-open.git
+<span class="prompt">$</span> <span class="cmd">cd</span> todo-open
+<span class="prompt">$</span> <span class="cmd">go build</span> ./cmd/todoopen ./cmd/todoopen-server</pre>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-block-start: 1.5rem;">Then start the server and open the web UI:</p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <button class="copy-btn" data-copy="todoopen web">copy</button>
+        <pre><span class="prompt">$</span> <span class="cmd">todoopen web</span>
+<span class="ok">Server listening on http://127.0.0.1:8080</span>
+<span class="muted">Workspace: /home/user/projects/myapp/.todoopen</span></pre>
+      </div>
+    </section>
+
+    <!-- Adapters -->
+    <section id="adapters">
+      <h2 class="section-title">Adapters</h2>
+      <p class="section-sub">Adapters are separate binaries that extend sync and view behavior. Install only what you need.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Adapter</th>
+            <th>Kind</th>
+            <th>What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>todoopen-adapter-sync-git</code></td>
+            <td><span class="badge badge-sync">sync</span></td>
+            <td>Push/pull <code>tasks.jsonl</code> to a git repo</td>
+          </tr>
+          <tr>
+            <td><code>todoopen-adapter-sync-s3</code></td>
+            <td><span class="badge badge-sync">sync</span></td>
+            <td>Sync workspace to an S3 bucket</td>
+          </tr>
+          <tr>
+            <td><code>todoopen-adapter-view-markdown</code></td>
+            <td><span class="badge badge-view">view</span></td>
+            <td>Render tasks as a <code>TASKS.md</code> file</td>
+          </tr>
+          <tr>
+            <td><em>build your own</em></td>
+            <td><span class="badge badge-sync">sync</span> <span class="badge badge-view">view</span></td>
+            <td>Any language, any backend — just speak the protocol</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p style="margin-block-start: 1.5rem;">Install an adapter the same way as the CLI:</p>
+
+      <div class="tab-group">
+        <div class="tab-buttons">
+          <button class="tab-btn active" data-tab="tab-adp-npm">npm</button>
+          <button class="tab-btn" data-tab="tab-adp-mise">mise</button>
+        </div>
+
+        <div id="tab-adp-npm" class="tab-panel active">
+          <div class="terminal" style="border-radius: 0;">
+            <button class="copy-btn" data-copy="npm install -g @justestif/todoopen-adapter-sync-git">copy</button>
+            <pre><span class="prompt">$</span> <span class="cmd">npm install -g</span> @justestif/todoopen-adapter-sync-git</pre>
+          </div>
+        </div>
+
+        <div id="tab-adp-mise" class="tab-panel">
+          <div class="terminal" style="border-radius: 0;">
+            <button class="copy-btn" data-copy="mise use -g go:github.com/justEstif/todo-open/adapters/todoopen-adapter-sync-git@latest&#10;mise reshim">copy</button>
+            <pre><span class="prompt">$</span> <span class="cmd">mise use -g</span> go:github.com/justEstif/todo-open/adapters/todoopen-adapter-sync-git@latest
+<span class="prompt">$</span> <span class="cmd">mise reshim</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="info box" style="margin-block-start: 1.5rem;">
+        Adapters are completely decoupled — they communicate over stdin/stdout JSON and can be written in any language.
+        See <a href="https://github.com/justEstif/todo-open/blob/main/docs/adapters.md" target="_blank" rel="noopener">adapters.md ↗</a> to build your own.
+      </div>
+    </section>
+
+    <!-- Agents -->
+    <section id="agents">
+      <h2 class="section-title">Agents</h2>
+      <p class="section-sub">todo.open is built for human-agent collaboration. Agents get primitives; humans stay in control.</p>
+
+      <p>The agent workflow: fetch the next unclaimed task, claim it with a lease, send heartbeats while working, complete or release when done.</p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <pre><span class="comment"># 1. fetch the next open task</span>
+<span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/next
+<span class="punct">{</span> <span class="key">"id"</span><span class="punct">:</span> <span class="val">"task_a1b2"</span><span class="punct">,</span> <span class="key">"title"</span><span class="punct">:</span> <span class="val">"Refactor auth module"</span><span class="punct">,</span> <span class="key">"status"</span><span class="punct">:</span> <span class="val">"open"</span> <span class="punct">}</span>
+
+<span class="comment"># 2. claim it (lease = 5 min, idempotent)</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/claim \
+    <span class="flag">-H</span> <span class="string">'X-Idempotency-Key: run-42'</span> \
+    <span class="flag">-d</span> <span class="string">'{"assignee":"agent-claude"}'</span>
+
+<span class="comment"># 3. heartbeat every 60s to keep the lease alive</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/heartbeat
+
+<span class="comment"># 4. complete</span>
+<span class="prompt">$</span> <span class="cmd">curl -s -X POST</span> localhost:8080/v1/tasks/task_a1b2/complete</pre>
+      </div>
+
+      <p style="margin-block-start: 1.5rem;">Watch task activity in real time:</p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <button class="copy-btn" data-copy="curl -s localhost:8080/v1/tasks/events">copy</button>
+        <pre><span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/tasks/events
+<span class="muted">event: task.status_changed
+data: {"id":"task_a1b2","status":"in_progress","assignee":"agent-claude"}
+
+event: task.status_changed
+data: {"id":"task_a1b2","status":"done"}</span></pre>
+      </div>
+
+      <div class="cards" style="margin-block-start: 2rem;">
+        <div class="box">
+          <strong class="titlebar">Lease system</strong>
+          <p>Claims expire automatically. If an agent crashes, the task becomes available again. No manual cleanup.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Idempotent ops</strong>
+          <p>Pass <code>X-Idempotency-Key</code> on mutating requests. Safe to retry without duplicating work.</p>
+        </div>
+        <div class="box">
+          <strong class="titlebar">Human override</strong>
+          <p>Humans can always release an agent's claim. The API and CLI never block human intervention.</p>
+        </div>
+      </div>
+
+      <p style="margin-block-start: 1.5rem;">
+        Discover the full agent contract at runtime:
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot-red"></span>
+          <span class="dot-yellow"></span>
+          <span class="dot-green"></span>
+        </div>
+        <button class="copy-btn" data-copy="curl -s localhost:8080/v1/capabilities | jq .agent">copy</button>
+        <pre><span class="prompt">$</span> <span class="cmd">curl -s</span> localhost:8080/v1/capabilities <span class="punct">|</span> jq .agent
+<span class="punct">{</span>
+  <span class="key">"endpoints"</span><span class="punct">:</span> <span class="punct">{</span>
+    <span class="key">"next"</span><span class="punct">:</span>      <span class="val">"GET  /v1/tasks/next"</span><span class="punct">,</span>
+    <span class="key">"claim"</span><span class="punct">:</span>     <span class="val">"POST /v1/tasks/{id}/claim"</span><span class="punct">,</span>
+    <span class="key">"heartbeat"</span><span class="punct">:</span> <span class="val">"POST /v1/tasks/{id}/heartbeat"</span><span class="punct">,</span>
+    <span class="key">"complete"</span><span class="punct">:</span>  <span class="val">"POST /v1/tasks/{id}/complete"</span>
+  <span class="punct">},</span>
+  <span class="key">"lease_ttl_default_seconds"</span><span class="punct">:</span> <span class="val">300</span>
+<span class="punct">}</span></pre>
+      </div>
+    </section>
+
+    <!-- Configure -->
+    <section id="configure">
+      <h2 class="section-title">Configure</h2>
+      <p class="section-sub">Create <code>.todoopen/config.toml</code> in your workspace. Config is read fresh on every server start — no restart needed for adapter changes.</p>
+
+      <div class="tab-group">
+        <div class="tab-buttons">
+          <button class="tab-btn active" data-tab="tab-cfg-minimal">minimal</button>
+          <button class="tab-btn" data-tab="tab-cfg-git">git sync</button>
+          <button class="tab-btn" data-tab="tab-cfg-full">full example</button>
+        </div>
+
+        <div id="tab-cfg-minimal" class="tab-panel active">
+          <pre><code><span class="comment"># .todoopen/config.toml — no adapters, just the server</span>
+[server]
+  addr = "127.0.0.1:8080"</code></pre>
+        </div>
+
+        <div id="tab-cfg-git" class="tab-panel">
+          <pre><code>[adapters.git]
+  bin = "todoopen-adapter-sync-git"
+
+[adapters.git.config]
+  remote = "origin"
+  branch = "main"</code></pre>
+        </div>
+
+        <div id="tab-cfg-full" class="tab-panel">
+          <pre><code>[server]
+  addr = "127.0.0.1:8080"
+
+[adapters.git]
+  bin = "todoopen-adapter-sync-git"
+
+[adapters.git.config]
+  remote = "${GIT_REMOTE}"   # expanded from env at runtime
+  branch = "tasks"
+
+[adapters.s3]
+  bin = "todoopen-adapter-sync-s3"
+
+[adapters.s3.config]
+  bucket = "${S3_BUCKET}"
+  region = "us-east-1"</code></pre>
+        </div>
+      </div>
+
+      <div class="ok box" style="margin-block-start: 1.5rem;">
+        Use <code>${VAR}</code> in adapter config values — expanded from the environment at runtime so secrets never live in the file.
+      </div>
+    </section>
+
+    <!-- Docs -->
+    <section id="docs">
+      <h2 class="section-title">Reference</h2>
+      <p class="section-sub">Full documentation on GitHub.</p>
+
+      <div class="cards">
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/api.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>api.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Full REST + SSE API reference. All endpoints, request/response shapes, error codes.</p>
+        </a>
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/adapters.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>adapters.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Adapter protocol, config format, and how to build your own in any language.</p>
+        </a>
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/schema.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>schema.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Task schema, field definitions, status/priority values, JSONL format.</p>
+        </a>
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/human-ux-invariants.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>human-ux-invariants.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Human-first UX rules, workflow invariants, and CLI output contract.</p>
+        </a>
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/agent-primitives.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>agent-primitives.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Agent coordination contract — claim, heartbeat, release, idempotency.</p>
+        </a>
+        <a class="box" href="https://github.com/justEstif/todo-open/blob/main/docs/architecture.md" target="_blank" rel="noopener" style="text-decoration: none; color: inherit;">
+          <strong>architecture.md ↗</strong>
+          <p style="margin:0; color: var(--muted-fg); font-size: 0.9rem;">Internal design — package layout, request flow, storage layer.</p>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      <strong>todo.open</strong> &nbsp;·&nbsp;
+      MIT License &nbsp;·&nbsp;
+      <a href="https://github.com/justEstif/todo-open" target="_blank" rel="noopener">GitHub ↗</a>
+    </p>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const group = btn.closest('.tab-group');
+        group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        group.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        group.querySelector('#' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(btn.dataset.copy).then(() => {
+          btn.textContent = 'copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>
