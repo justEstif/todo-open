@@ -29,7 +29,7 @@ func newTestServer(t *testing.T, ids ...string) (*httptest.Server, *middleware.I
 		return "task_extra"
 	}
 	svc := core.NewService(repo, func() time.Time { return time.Now().UTC() }, idFn)
-	idem := middleware.NewIdempotencyStore()
+	idem := middleware.NewIdempotencyStore(nil)
 	ts := httptest.NewServer(api.NewRouterWithIdempotency(svc, adapters.Runtime{}, events.NewBroker(), idem))
 	t.Cleanup(ts.Close)
 	return ts, idem

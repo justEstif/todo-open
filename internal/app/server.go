@@ -46,7 +46,16 @@ func NewServer(addr string) (*http.Server, error) {
 
 	repo := defaultTaskRepo(workspaceRoot)
 	broker := events.NewBroker()
-	taskService := events.NewEventEmittingService(core.NewService(repo, time.Now, nil), broker)
+	taskService := core.NewService(repo, time.Now, nil)
+	taskService.OnMutation(func(e core.MutationEvent) {
+		var event events.Event
+		event.Type = e.Type
+		event.Task = e.Task
+		event.OldStatus = e.OldStatus
+		event.NewStatus = e.NewStatus
+		event.At = e.At
+		broker.Publish(event)
+	})
 
 	// Start the lease sweeper background goroutine. It stops when the server context is cancelled.
 	// We use context.Background() here; the sweeper will be stopped via server shutdown in main.

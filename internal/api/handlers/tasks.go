@@ -133,25 +133,18 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ETag / If-Match enforcement.
-	if ifMatch := r.Header.Get("If-Match"); ifMatch != "" {
-		expectedVersion, err := parseETag(ifMatch)
+	// Parse If-Match header for ETag enforcement.
+	var ifMatch *int
+	if hdr := r.Header.Get("If-Match"); hdr != "" {
+		v, err := parseETag(hdr)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_etag", "invalid If-Match header")
 			return
 		}
-		current, err := h.svc.GetTask(r.Context(), id)
-		if err != nil {
-			writeServiceError(w, err)
-			return
-		}
-		if current.Version != expectedVersion {
-			writeError(w, http.StatusConflict, "version_conflict", "ETag mismatch; resource was modified")
-			return
-		}
+		ifMatch = &v
 	}
 
-	task, err := h.svc.UpdateTask(r.Context(), id, payload.Title)
+	task, err := h.svc.UpdateTask(r.Context(), id, payload.Title, ifMatch)
 	if err != nil {
 		writeServiceError(w, err)
 		return

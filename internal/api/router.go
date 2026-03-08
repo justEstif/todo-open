@@ -12,7 +12,7 @@ import (
 )
 
 func NewRouter(taskService core.TaskService, adapterRuntime adapters.Runtime, broker *events.Broker) http.Handler {
-	return NewRouterWithIdempotency(taskService, adapterRuntime, broker, middleware.NewIdempotencyStore())
+	return NewRouterWithIdempotency(taskService, adapterRuntime, broker, middleware.NewIdempotencyStore(nil))
 }
 
 func NewRouterWithIdempotency(taskService core.TaskService, adapterRuntime adapters.Runtime, broker *events.Broker, idem *middleware.IdempotencyStore) http.Handler {

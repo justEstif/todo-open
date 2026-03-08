@@ -83,16 +83,7 @@ func toMap(v any) (map[string]any, bool) {
 	if m, ok := v.(map[string]any); ok {
 		return m, true
 	}
-	// Handle case where ext was set as a typed struct — re-encode.
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil, false
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, false
-	}
-	return m, true
+	return nil, false
 }
 
 // priorityRank maps priority to a sort key (higher = more urgent).
@@ -168,6 +159,7 @@ func (s *Service) ClaimTask(ctx context.Context, id, agentID string, leaseTTLSec
 	}
 
 	// Apply claim.
+	oldStatus := task.Status
 	lease := now.Add(time.Duration(leaseTTLSeconds) * time.Second)
 	setAgentExt(&task, AgentInfo{
 		ID:              agentID,
@@ -182,7 +174,11 @@ func (s *Service) ClaimTask(ctx context.Context, id, agentID string, leaseTTLSec
 	}
 	task.UpdatedAt = now
 	task.Version++
-	return s.repo.Update(ctx, task)
+	result, err := s.repo.Update(ctx, task)
+	if err == nil && task.Status != oldStatus {
+		s.emitMutationEvent("task.status_changed", &result, &oldStatus, &task.Status)
+	}
+	return result, err
 }
 
 // HeartbeatTask extends the lease for an agent-owned task.
@@ -241,11 +237,16 @@ func (s *Service) ReleaseTask(ctx context.Context, id, agentID string) (Task, er
 	}
 
 	now := s.nowFn().UTC()
+	oldStatus := task.Status
 	clearAgentExt(&task)
 	task.Status = TaskStatusOpen
 	task.UpdatedAt = now
 	task.Version++
-	return s.repo.Update(ctx, task)
+	result, err := s.repo.Update(ctx, task)
+	if err == nil && task.Status != oldStatus {
+		s.emitMutationEvent("task.status_changed", &result, &oldStatus, &task.Status)
+	}
+	return result, err
 }
 
 // SweepExpiredLeases finds in_progress tasks with expired leases and transitions them back to open.

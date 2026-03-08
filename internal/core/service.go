@@ -26,7 +26,7 @@ type TaskService interface {
 	CreateTask(ctx context.Context, title string, triggerIDs ...string) (Task, error)
 	GetTask(ctx context.Context, id string) (Task, error)
 	ListTasks(ctx context.Context, filter ListFilter) ([]Task, error)
-	UpdateTask(ctx context.Context, id string, title string) (Task, error)
+	UpdateTask(ctx context.Context, id, title string, ifMatch *int) (Task, error)
 	// UpsertTask creates or updates a task by client-provided ID.
 	// created=true means the task was newly created (HTTP 201); false means it existed (HTTP 200).
 	// ifMatch, when non-nil, must equal the stored version or ErrConflict is returned.
@@ -46,6 +46,18 @@ type TaskService interface {
 	SweepExpiredLeases(ctx context.Context) (int, error)
 }
 
+// MutationHook is called after a successful task mutation.
+type MutationHook func(event MutationEvent)
+
+// MutationEvent represents a task mutation event.
+type MutationEvent struct {
+	Type      string // "task.created", "task.updated", "task.deleted", "task.status_changed"
+	Task      *Task
+	OldStatus *TaskStatus
+	NewStatus *TaskStatus
+	At        time.Time
+}
+
 type IDGenerator func() string
 
 type TaskRepository interface {
@@ -59,6 +71,7 @@ type Service struct {
 	repo  TaskRepository
 	nowFn func() time.Time
 	idFn  IDGenerator
+	hook  MutationHook
 }
 
 func NewService(repo TaskRepository, nowFn func() time.Time, idFn IDGenerator) *Service {
@@ -69,6 +82,23 @@ func NewService(repo TaskRepository, nowFn func() time.Time, idFn IDGenerator) *
 		idFn = func() string { return fmt.Sprintf("task_%d", nowFn().UnixNano()) }
 	}
 	return &Service{repo: repo, nowFn: nowFn, idFn: idFn}
+}
+
+// OnMutation sets a hook to be called after successful task mutations.
+func (s *Service) OnMutation(h MutationHook) {
+	s.hook = h
+}
+
+func (s *Service) emitMutationEvent(eventType string, task *Task, oldStatus, newStatus *TaskStatus) {
+	if s.hook != nil {
+		s.hook(MutationEvent{
+			Type:      eventType,
+			Task:      task,
+			OldStatus: oldStatus,
+			NewStatus: newStatus,
+			At:        s.nowFn().UTC(),
+		})
+	}
 }
 
 func (s *Service) CreateTask(ctx context.Context, title string, triggerIDs ...string) (Task, error) {
@@ -90,7 +120,12 @@ func (s *Service) CreateTask(ctx context.Context, title string, triggerIDs ...st
 		UpdatedAt:  now,
 		Version:    1,
 	}
-	return s.repo.Create(ctx, task)
+	// TODO: validate trigger_ids cycle on write (detectCycle)
+	result, err := s.repo.Create(ctx, task)
+	if err == nil {
+		s.emitMutationEvent("task.created", &result, nil, nil)
+	}
+	return result, err
 }
 
 func (s *Service) GetTask(ctx context.Context, id string) (Task, error) {
@@ -145,6 +180,7 @@ func (s *Service) UpsertTask(ctx context.Context, id, title string, ifMatch *int
 		if createErr != nil {
 			return Task{}, false, createErr
 		}
+		s.emitMutationEvent("task.created", &created, nil, nil)
 		return created, true, nil
 	}
 
@@ -170,6 +206,7 @@ func (s *Service) UpsertTask(ctx context.Context, id, title string, ifMatch *int
 	if updateErr != nil {
 		return Task{}, false, updateErr
 	}
+	s.emitMutationEvent("task.updated", &updated, nil, nil)
 	return updated, false, nil
 }
 
@@ -187,14 +224,19 @@ func (s *Service) PatchStatus(ctx context.Context, id string, status TaskStatus)
 		// Idempotent no-op.
 		return task, nil
 	}
+	oldStatus := task.Status
 	now := s.nowFn().UTC()
 	task.Status = status
 	task.UpdatedAt = now
 	task.Version++
-	return s.repo.Update(ctx, task)
+	result, err := s.repo.Update(ctx, task)
+	if err == nil && task.Status != oldStatus {
+		s.emitMutationEvent("task.status_changed", &result, &oldStatus, &task.Status)
+	}
+	return result, err
 }
 
-func (s *Service) UpdateTask(ctx context.Context, id string, title string) (Task, error) {
+func (s *Service) UpdateTask(ctx context.Context, id string, title string, ifMatch *int) (Task, error) {
 	if strings.TrimSpace(id) == "" {
 		return Task{}, fmt.Errorf("id is required: %w", ErrInvalidInput)
 	}
@@ -207,10 +249,20 @@ func (s *Service) UpdateTask(ctx context.Context, id string, title string) (Task
 	if err != nil {
 		return Task{}, err
 	}
+
+	// ETag enforcement
+	if ifMatch != nil && task.Version != *ifMatch {
+		return Task{}, fmt.Errorf("ETag mismatch; resource was modified: %w", ErrConflict)
+	}
+
 	task.Title = title
 	task.UpdatedAt = s.nowFn().UTC()
 	task.Version++
-	return s.repo.Update(ctx, task)
+	result, err := s.repo.Update(ctx, task)
+	if err == nil {
+		s.emitMutationEvent("task.updated", &result, nil, nil)
+	}
+	return result, err
 }
 
 func (s *Service) DeleteTask(ctx context.Context, id string) error {
@@ -227,6 +279,9 @@ func (s *Service) DeleteTask(ctx context.Context, id string) error {
 	task.UpdatedAt = now
 	task.Version++
 	_, err = s.repo.Update(ctx, task)
+	if err == nil {
+		s.emitMutationEvent("task.deleted", &task, nil, nil)
+	}
 	return err
 }
 
@@ -239,6 +294,7 @@ func (s *Service) CompleteTask(ctx context.Context, id string) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	oldStatus := task.Status
 	now := s.nowFn().UTC()
 	task.Status = TaskStatusDone
 	task.CompletedAt = &now
@@ -247,6 +303,9 @@ func (s *Service) CompleteTask(ctx context.Context, id string) (Task, error) {
 	task, err = s.repo.Update(ctx, task)
 	if err != nil {
 		return Task{}, err
+	}
+	if task.Status != oldStatus {
+		s.emitMutationEvent("task.status_changed", &task, &oldStatus, &task.Status)
 	}
 	if err := s.evaluatePendingTasks(ctx, id); err != nil {
 		return task, err
@@ -302,34 +361,4 @@ func (s *Service) evaluatePendingTasks(ctx context.Context, completedID string) 
 		}
 	}
 	return nil
-}
-
-// detectCycle performs DFS cycle detection on dependency edges.
-// adj maps task ID -> its trigger_ids (edges task depends on).
-func detectCycle(adj map[string][]string) bool {
-	// 0=unvisited, 1=in-stack, 2=done
-	state := map[string]int{}
-	var dfs func(id string) bool
-	dfs = func(id string) bool {
-		if state[id] == 1 {
-			return true
-		}
-		if state[id] == 2 {
-			return false
-		}
-		state[id] = 1
-		for _, dep := range adj[id] {
-			if dfs(dep) {
-				return true
-			}
-		}
-		state[id] = 2
-		return false
-	}
-	for id := range adj {
-		if state[id] == 0 && dfs(id) {
-			return true
-		}
-	}
-	return false
 }

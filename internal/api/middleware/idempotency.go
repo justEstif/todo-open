@@ -26,10 +26,13 @@ type IdempotencyStore struct {
 }
 
 // NewIdempotencyStore creates a new in-memory idempotency store.
-func NewIdempotencyStore() *IdempotencyStore {
+func NewIdempotencyStore(nowFn func() time.Time) *IdempotencyStore {
+	if nowFn == nil {
+		nowFn = time.Now
+	}
 	return &IdempotencyStore{
 		cache: make(map[string]cachedResponse),
-		nowFn: time.Now,
+		nowFn: nowFn,
 	}
 }
 
