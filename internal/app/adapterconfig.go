@@ -15,11 +15,21 @@ import (
 
 const defaultPluginHandshakeTimeout = 2 * time.Second
 
-// Re-export canonical adapter runtime/config types for app consumers.
+// Re-export canonical adapter runtime types for app consumers.
 type AdapterConfig = adapters.Config
 type AdapterStatus = adapters.Status
 type AdapterRuntime = adapters.Runtime
 
+// AdapterPluginConfig describes an external plugin binary.
+type AdapterPluginConfig struct {
+	Name    string             `json:"name"`
+	Kind    plugin.AdapterKind `json:"kind"`
+	Command string             `json:"command"`
+	Args    []string           `json:"args,omitempty"`
+}
+
+// BuildAdapterRuntime builds a runtime status snapshot from an explicit
+// AdapterConfig and the registered built-in adapters.
 func BuildAdapterRuntime(cfg AdapterConfig, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
 	runtime := AdapterRuntime{Config: cfg, Ready: true}
 
@@ -60,6 +70,13 @@ func BuildAdapterRuntime(cfg AdapterConfig, viewRegistry *view.Registry, syncReg
 	return runtime
 }
 
+// BuildAdapterRuntimeFromConfig resolves the full runtime adapter status from a
+// loaded AdapterFileConfig, probing plugin binaries and recording health.
+func BuildAdapterRuntimeFromConfig(ctx context.Context, cfg AdapterFileConfig, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
+	resolver := newAdapterRuntimeResolver(viewRegistry, syncRegistry, newPluginProbe(defaultPluginHandshakeTimeout))
+	return resolver.Resolve(ctx, cfg)
+}
+
 func validateNames(field string, names []string) error {
 	seen := map[string]struct{}{}
 	for _, name := range names {
@@ -73,11 +90,6 @@ func validateNames(field string, names []string) error {
 		seen[trimmed] = struct{}{}
 	}
 	return nil
-}
-
-func BuildAdapterRuntimeFromMeta(ctx context.Context, meta WorkspaceMeta, viewRegistry *view.Registry, syncRegistry *syncadapter.Registry) AdapterRuntime {
-	resolver := newAdapterRuntimeResolver(viewRegistry, syncRegistry, newPluginProbe(defaultPluginHandshakeTimeout))
-	return resolver.Resolve(ctx, meta)
 }
 
 type pluginProbe struct {
@@ -107,20 +119,20 @@ func newAdapterRuntimeResolver(viewRegistry *view.Registry, syncRegistry *syncad
 	return adapterRuntimeResolver{viewRegistry: viewRegistry, syncRegistry: syncRegistry, probe: probe}
 }
 
-func (r adapterRuntimeResolver) Resolve(ctx context.Context, meta WorkspaceMeta) AdapterRuntime {
-	cfg := AdapterConfig{
-		EnabledViews:        meta.EnabledViews,
-		EnabledSyncAdapters: meta.EnabledSyncAdapters,
+func (r adapterRuntimeResolver) Resolve(ctx context.Context, fileCfg AdapterFileConfig) AdapterRuntime {
+	adapterCfg := AdapterConfig{
+		EnabledViews:        fileCfg.Views.Enabled,
+		EnabledSyncAdapters: fileCfg.Sync.Enabled,
 	}
-	runtime := BuildAdapterRuntime(cfg, r.viewRegistry, r.syncRegistry)
+	runtime := BuildAdapterRuntime(adapterCfg, r.viewRegistry, r.syncRegistry)
 
 	pluginByKey := map[string]AdapterPluginConfig{}
-	for _, p := range meta.AdapterPlugins {
+	for _, p := range pluginsFromAdapterFileConfig(fileCfg) {
 		pluginByKey[string(p.Kind)+":"+p.Name] = p
 	}
 
-	r.resolvePluginBacked(ctx, &runtime, pluginByKey, plugin.AdapterKindView, meta.EnabledViews)
-	r.resolvePluginBacked(ctx, &runtime, pluginByKey, plugin.AdapterKindSync, meta.EnabledSyncAdapters)
+	r.resolvePluginBacked(ctx, &runtime, pluginByKey, plugin.AdapterKindView, fileCfg.Views.Enabled)
+	r.resolvePluginBacked(ctx, &runtime, pluginByKey, plugin.AdapterKindSync, fileCfg.Sync.Enabled)
 
 	sort.Slice(runtime.Status, func(i, j int) bool {
 		if runtime.Status[i].Kind == runtime.Status[j].Kind {

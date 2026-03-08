@@ -164,17 +164,24 @@ func TestAdaptersCommand_ShowsSourceForPlugin(t *testing.T) {
 	if err := os.MkdirAll(metaDir, 0o755); err != nil {
 		t.Fatalf("mkdir metadata dir: %v", err)
 	}
-	payload := `{
-  "workspace_version": 1,
-  "schema_version": "todo.open.task.v1",
-  "enabled_views": ["json", "markdown"],
-  "enabled_sync_adapters": ["noop"],
-  "adapter_plugins": [
-    {"name":"markdown","kind":"view","command":"sh","args":["-c","printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"markdown\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"]}
-  ]
-}`
-	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(payload), 0o644); err != nil {
+	metaPayload := `{"workspace_version":1,"schema_version":"todo.open.task.v1"}`
+	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(metaPayload), 0o644); err != nil {
 		t.Fatalf("write metadata: %v", err)
+	}
+	cfgPayload := `
+[views]
+  enabled = ["json", "markdown"]
+
+[sync]
+  enabled = ["noop"]
+
+[adapters.markdown]
+  bin  = "sh"
+  kind = "view"
+  args = ["-c", "printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"markdown\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"]
+`
+	if err := os.WriteFile(filepath.Join(metaDir, "config.toml"), []byte(cfgPayload), 0o644); err != nil {
+		t.Fatalf("write adapter config: %v", err)
 	}
 
 	var out bytes.Buffer

@@ -233,9 +233,13 @@ func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 	}
 
-	meta, err := app.LoadWorkspaceMeta(workspaceRoot)
-	if err != nil {
+	if _, err := app.LoadWorkspaceMeta(workspaceRoot); err != nil {
 		fmt.Fprintf(stderr, "failed to load workspace metadata: %v\n", err)
+		return 1
+	}
+	adapterCfg, err2 := app.LoadAdapterFileConfig(workspaceRoot)
+	if err2 != nil {
+		fmt.Fprintf(stderr, "failed to load adapter config: %v\n", err2)
 		return 1
 	}
 	viewRegistry, err := app.NewViewRegistry()
@@ -249,7 +253,7 @@ func runAdapters(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	runtime := app.BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
+	runtime := app.BuildAdapterRuntimeFromConfig(context.Background(), adapterCfg, viewRegistry, syncRegistry) //nolint:contextcheck
 	if *asJSON {
 		printJSON(stdout, runtime)
 	} else {

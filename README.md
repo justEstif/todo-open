@@ -4,17 +4,28 @@
 [![Status](https://img.shields.io/badge/status-MVP-blue)](https://github.com/justEstif/todo-open/blob/main/docs/mvp.md)
 [![Storage](https://img.shields.io/badge/storage-JSONL-6f42c1)](https://github.com/justEstif/todo-open/blob/main/docs/schema.md)
 
-**A local-first task runtime with a stable API contract — CLI, web, and agent-friendly.**
+**A local task server with an open API — agent-ready, CLI-friendly, your data.**
 
-Most task apps lock your data on their servers — gone if they shut down. Plain-text systems like todo.txt flip this but sacrifice usability. todo.open does neither.
+```sh
+todoopen task create --title "Ship the release"
+todoopen task list --json
+```
 
-Run a local Go server. Store tasks as plain JSONL. Sync anywhere, view in any tool.
+```json
+{
+  "items": [
+    { "id": "task_1", "title": "Ship the release", "status": "open", "priority": "normal" }
+  ]
+}
+```
+
+Tasks are stored as plain JSONL on your machine. A local HTTP server exposes them over a stable API. Any tool — CLI, web UI, agent, or script — talks to the same endpoint.
 
 ---
 
-## Quick start
+## Install
 
-### Install via mise (recommended)
+**mise (recommended):**
 
 ```sh
 mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@v0.1.2
@@ -22,9 +33,7 @@ mise reshim
 todoopen --version
 ```
 
-Use a pinned release tag instead of `@latest` so Go module proxy lag does not leave you on an older build.
-
-### Build from source
+**Build from source:**
 
 ```sh
 git clone https://github.com/justEstif/todo-open.git
@@ -32,14 +41,6 @@ cd todo-open
 go build ./cmd/todoopen
 ./todoopen --version
 ```
-
-### Verify it works
-
-```sh
-./scripts/persistence-smoke.sh
-```
-
-Creates a task, restarts the server, confirms the task survived.
 
 ---
 
@@ -49,9 +50,10 @@ Creates a task, restarts the server, confirms the task survived.
 # Start the local server + web UI
 todoopen web
 
-# Manage tasks via CLI
+# Manage tasks
 todoopen task create --title "Write release notes"
 todoopen task list
+todoopen task list --json | jq '.items[] | select(.status == "open")'
 
 # Check active adapters
 todoopen adapters
@@ -65,49 +67,45 @@ todoopen adapters
 
 ---
 
-## Web UI Preview
+## Adapters
 
-![todo.open web UI preview](docs/ui-screenshot.png)
+Adapters extend sync and view behavior without touching core task semantics. Install the ones you need:
+
+| Adapter                  | Kind | What it does                        |
+| ------------------------ | ---- | ----------------------------------- |
+| `todoopen-plugin-sync-git` | sync | Push/pull `tasks.jsonl` to a git repo |
+| *(build your own)*       | sync | Rsync, S3, custom backend           |
+| *(build your own)*       | view | Markdown, TUI, custom renderer      |
+
+Enable adapters in `.todoopen/config.toml`:
+
+```toml
+[views]
+  enabled = ["json", "markdown"]
+
+[sync]
+  enabled = ["noop", "git"]
+
+[adapters.git]
+  bin  = "todoopen-plugin-sync-git"
+  kind = "sync"
+
+[adapters.git.config]
+  remote = "${GIT_REMOTE}"
+  branch = "tasks"
+
+[adapters.markdown]
+  bin  = "todoopen-plugin-view-markdown"
+  kind = "view"
+```
+
+Use `${VAR}` syntax in adapter config values — todo.open expands them from the environment at runtime so secrets never live in the file.
+
+See [docs/adapters.md](docs/adapters.md) for the full plugin protocol and [docs/schema.md](docs/schema.md) for task schema details.
 
 ---
 
-## Sync anywhere
-
-Tasks stay local by default. Enable a sync adapter when you're ready.
-
-Implement the interface:
-
-```go
-type Adapter interface {
-    Name() string
-    Push(ctx context.Context, tasks []core.Task) error
-    Pull(ctx context.Context) ([]core.Task, error)
-}
-```
-
-Enable it in `.todoopen/meta.json`:
-
-```json
-{
-  "enabled_sync_adapters": ["git"],
-  "adapter_plugins": [
-    { "name": "git", "kind": "sync", "command": "todoopen-plugin-sync-git" }
-  ]
-}
-```
-
-**Adapters you could build or contribute:**
-
-- **git** — push/pull `tasks.jsonl` to a repo branch ([reference implementation](https://github.com/justEstif/todo-open-git-sync))
-- **rsync** — sync over SSH
-- **S3** — backup to object storage
-- **custom** — anything with a `Push`/`Pull` contract
-
-See [adapters.md](docs/adapters.md) and [schema.md](docs/schema.md) for the full plugin contract.
-
----
-
-## View in any tool
+## Your data, your tools
 
 Tasks are JSONL. Pipe them anywhere:
 
@@ -119,46 +117,32 @@ todoopen task list --json | vd -f json
 todoopen task list --json | mlr --json filter '$status == "open"'
 ```
 
-Or build a view adapter using the `RenderTasks` interface — see [adapters.md](docs/adapters.md).
-
 ---
 
 ## How it works
 
-```mermaid
-flowchart TD
-    subgraph Clients["Your Clients"]
-        CLI[CLI]
-        WEB[Web UI]
-        TUI[TUI]
-        EXT[Integrations]
-    end
-
-    subgraph Server["todo.open Server"]
-        API[HTTP API]
-        CORE[Core Domain]
-        STORE[JSONL Store]
-        SYNC[Sync Layer]
-    end
-
-    subgraph Remote["Remote (your choice)"]
-        GIT[git repo]
-        S3[S3 / object store]
-        CUSTOM[custom adapter]
-    end
-
-    CLI & WEB & TUI & EXT -->|loopback HTTP| API
-    API --> CORE
-    CORE --> STORE
-    CORE --> SYNC
-    SYNC <-->|Push / Pull adapter| GIT & S3 & CUSTOM
+```
+┌─────────────────────────────────────────┐
+│  Clients                                │
+│  CLI · Web UI · TUI · Agents · Scripts  │
+└───────────────┬─────────────────────────┘
+                │ loopback HTTP
+┌───────────────▼─────────────────────────┐
+│  todo.open Server                       │
+│  HTTP API → Core domain → JSONL store   │
+│                         → Sync layer    │
+└───────────────┬─────────────────────────┘
+                │ Push / Pull adapter
+┌───────────────▼─────────────────────────┐
+│  Remote (your choice)                   │
+│  git repo · S3 · rsync · custom         │
+└─────────────────────────────────────────┘
 ```
 
-- **Local-first**: runs on your machine, no cloud required
-- **Your data**: tasks stored as plain JSONL — readable, portable, version-controllable
-- **One API**: all clients connect over loopback HTTP
-- **Pluggable sync**: implement a `Push`/`Pull` adapter to sync anywhere
-- **Pluggable views**: pipe JSON output to any tool, or build a view adapter
+- **Local-first** — runs on your machine, no cloud required
+- **Open API** — all clients speak the same loopback HTTP contract
+- **Plain JSONL** — tasks are readable, portable, and version-controllable
+- **Pluggable sync** — push/pull via any adapter binary you point it at
 
 ---
 

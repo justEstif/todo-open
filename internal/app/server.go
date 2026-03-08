@@ -20,9 +20,14 @@ func NewServer(addr string) (*http.Server, error) {
 		return nil, err
 	}
 
-	meta, err := LoadWorkspaceMeta(workspaceRoot)
+	_, err = LoadWorkspaceMeta(workspaceRoot)
 	if err != nil {
 		return nil, fmt.Errorf("load workspace metadata: %w", err)
+	}
+
+	adapterCfg, err := LoadAdapterFileConfig(workspaceRoot)
+	if err != nil {
+		return nil, fmt.Errorf("load adapter config: %w", err)
 	}
 
 	viewRegistry, err := NewViewRegistry()
@@ -33,7 +38,7 @@ func NewServer(addr string) (*http.Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load sync adapters: %w", err)
 	}
-	runtime := BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromConfig(context.Background(), adapterCfg, viewRegistry, syncRegistry)
 	if !runtime.Ready {
 		return nil, fmt.Errorf("adapter initialization failed: %s", strings.Join(runtime.Errors, "; "))
 	}

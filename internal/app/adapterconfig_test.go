@@ -30,7 +30,7 @@ func TestBuildAdapterRuntime(t *testing.T) {
 	}
 }
 
-func TestBuildAdapterRuntimeFromMeta_ValidPluginHandshake(t *testing.T) {
+func TestBuildAdapterRuntimeFromConfig_ValidPluginHandshake(t *testing.T) {
 	viewRegistry, err := NewViewRegistry()
 	if err != nil {
 		t.Fatalf("new view registry: %v", err)
@@ -40,20 +40,19 @@ func TestBuildAdapterRuntimeFromMeta_ValidPluginHandshake(t *testing.T) {
 		t.Fatalf("new sync registry: %v", err)
 	}
 
-	meta := WorkspaceMeta{
-		WorkspaceVersion:    1,
-		SchemaVersion:       "todo.open.task.v1",
-		EnabledViews:        []string{"json", "markdown"},
-		EnabledSyncAdapters: []string{"noop"},
-		AdapterPlugins: []AdapterPluginConfig{{
-			Name:    "markdown",
-			Kind:    plugin.AdapterKindView,
-			Command: "sh",
-			Args:    []string{"-c", "printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"markdown\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"},
-		}},
+	cfg := AdapterFileConfig{
+		Views: AdapterGroupConfig{Enabled: []string{"json", "markdown"}},
+		Sync:  AdapterGroupConfig{Enabled: []string{"noop"}},
+		Adapters: map[string]AdapterEntry{
+			"markdown": {
+				Kind: plugin.AdapterKindView,
+				Bin:  "sh",
+				Args: []string{"-c", "printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"markdown\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"},
+			},
+		},
 	}
 
-	runtime := BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromConfig(context.Background(), cfg, viewRegistry, syncRegistry)
 	if !runtime.Ready {
 		t.Fatalf("runtime should be ready, errors=%v", runtime.Errors)
 	}
@@ -72,7 +71,7 @@ func TestBuildAdapterRuntimeFromMeta_ValidPluginHandshake(t *testing.T) {
 	}
 }
 
-func TestBuildAdapterRuntimeFromMeta_PluginHandshakeFailure(t *testing.T) {
+func TestBuildAdapterRuntimeFromConfig_PluginHandshakeFailure(t *testing.T) {
 	viewRegistry, err := NewViewRegistry()
 	if err != nil {
 		t.Fatalf("new view registry: %v", err)
@@ -82,20 +81,19 @@ func TestBuildAdapterRuntimeFromMeta_PluginHandshakeFailure(t *testing.T) {
 		t.Fatalf("new sync registry: %v", err)
 	}
 
-	meta := WorkspaceMeta{
-		WorkspaceVersion:    1,
-		SchemaVersion:       "todo.open.task.v1",
-		EnabledViews:        []string{"json", "markdown"},
-		EnabledSyncAdapters: []string{"noop"},
-		AdapterPlugins: []AdapterPluginConfig{{
-			Name:    "markdown",
-			Kind:    plugin.AdapterKindView,
-			Command: "sh",
-			Args:    []string{"-c", "printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"wrong\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"},
-		}},
+	cfg := AdapterFileConfig{
+		Views: AdapterGroupConfig{Enabled: []string{"json", "markdown"}},
+		Sync:  AdapterGroupConfig{Enabled: []string{"noop"}},
+		Adapters: map[string]AdapterEntry{
+			"markdown": {
+				Kind: plugin.AdapterKindView,
+				Bin:  "sh",
+				Args: []string{"-c", "printf '{\"protocol_version\":\"todoopen.plugin.v1\",\"name\":\"wrong\",\"kind\":\"view\",\"capabilities\":[\"render_tasks\"],\"health\":{\"state\":\"ready\"}}\\n'; sleep 1"},
+			},
+		},
 	}
 
-	runtime := BuildAdapterRuntimeFromMeta(context.Background(), meta, viewRegistry, syncRegistry)
+	runtime := BuildAdapterRuntimeFromConfig(context.Background(), cfg, viewRegistry, syncRegistry)
 	if runtime.Ready {
 		t.Fatal("runtime should not be ready")
 	}

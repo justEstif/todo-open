@@ -9,8 +9,9 @@ This document defines the current adapter contracts and runtime behavior.
 ## Runtime Configuration Model
 
 - Built-in adapters are registered in Go at startup.
-- Plugin-backed adapters are discovered via `.todoopen/meta.json`.
-- Runtime enablement source of truth is `.todoopen/meta.json`.
+- Plugin-backed adapters are discovered via `.todoopen/config.toml`.
+- Runtime enablement source of truth is `.todoopen/config.toml`.
+- Workspace identity metadata (version, schema) lives separately in `.todoopen/meta.json`.
 
 ## Goals
 
@@ -62,34 +63,41 @@ Built-in implementations:
 Adapter examples are maintained in a separate examples repository.
 Use those examples as templates for project-specific adapters.
 
-## Current Adapter Configuration Schema
+## Adapter Configuration Schema
 
-Runtime adapter config is loaded from workspace metadata in `.todoopen/meta.json`.
-If metadata is missing, defaults are applied (`json` view + `noop` sync enabled).
+Adapter configuration lives in `.todoopen/config.toml`, separate from workspace
+identity metadata (`meta.json`). If `config.toml` is absent, defaults apply
+(`json` view + `noop` sync enabled).
 
-```json
-{
-  "workspace_version": 1,
-  "schema_version": "todo.open.task.v1",
-  "enabled_views": ["json", "markdown"],
-  "enabled_sync_adapters": ["noop", "git"],
-  "adapter_plugins": [
-    {"name": "markdown", "kind": "view", "command": "todoopen-plugin-view-markdown"},
-    {"name": "git", "kind": "sync", "command": "todoopen-plugin-sync-git"}
-  ],
-  "ext": {
-    "adapter_settings": {
-      "git": {"remote": "origin", "branch": "tasks"}
-    }
-  }
-}
+```toml
+[views]
+  enabled = ["json", "markdown"]
+
+[sync]
+  enabled = ["noop", "git"]
+
+[adapters.git]
+  bin  = "todoopen-plugin-sync-git"
+  kind = "sync"
+
+[adapters.git.config]
+  remote = "${GIT_REMOTE}"
+  branch = "tasks"
+
+[adapters.markdown]
+  bin  = "todoopen-plugin-view-markdown"
+  kind = "view"
 ```
+
+Use `${VAR}` syntax in `[adapters.<name>.config]` values — todo.open expands them
+from the environment at runtime so secrets never live in the file.
 
 Validation rules:
 
-- adapter names in `enabled_views` and `enabled_sync_adapters` must be non-empty
-- names in each enabled list must be unique
-- any enabled adapter must also be registered at startup
+- adapter names in `views.enabled` and `sync.enabled` must be non-empty and unique
+- any non-builtin enabled adapter must have a matching `[adapters.<name>]` entry
+- `bin` is required for every declared adapter entry
+- `kind` must be `view` or `sync`
 
 ## Startup and Health Semantics
 
@@ -124,8 +132,8 @@ The CLI command and HTTP endpoint expose the same runtime readiness model.
 1. Implement the relevant adapter contract (`internal/view` or `internal/sync`).
 2. Use a stable adapter `Name()`.
 3. For built-ins, register during app composition.
-4. For external plugins, register and enable through `.todoopen/meta.json`.
-5. Keep adapter-specific settings under metadata extension fields.
+4. For external plugins, declare the binary in `.todoopen/config.toml` and add the name to `views.enabled` or `sync.enabled`.
+5. Keep adapter-specific settings under `[adapters.<name>.config]`.
 6. Add focused unit tests for contract conformance.
 
 This keeps extension complexity inside adapters and minimizes change amplification for the rest of the codebase.
