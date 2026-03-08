@@ -101,7 +101,18 @@ Enable adapters in `.todoopen/config.toml`:
 
 Use `${VAR}` syntax in adapter config values — todo.open expands them from the environment at runtime so secrets never live in the file.
 
-See [docs/adapters.md](docs/adapters.md) for the full plugin protocol and [docs/schema.md](docs/schema.md) for task schema details.
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/adapters.md](docs/adapters.md) | Plugin protocol and sync/view adapter contract |
+| [docs/schema.md](docs/schema.md) | Canonical task record format and validation rules |
+| [docs/api.md](docs/api.md) | HTTP API reference and implementation status |
+| [docs/human-agent-model.md](docs/human-agent-model.md) | Mental model and responsibility boundaries for humans and agents |
+| [docs/human-ux-invariants.md](docs/human-ux-invariants.md) | UX rules and workflows for CLI and TUI implementation |
+| [docs/agent-primitives.md](docs/agent-primitives.md) | Technical contract for agent behavior and endpoints |
 
 ---
 
