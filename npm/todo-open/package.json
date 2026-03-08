@@ -1,0 +1,24 @@
+{
+  "name": "@justestif/todo-open",
+  "version": "0.0.0",
+  "description": "Local-first task server with an open API — agent-ready, CLI-friendly, your data.",
+  "bin": {
+    "todoopen": "bin.js",
+    "todoopen-server": "bin-server.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "bin.js",
+    "bin-server.js",
+    "install.js",
+    "bin/"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justEstif/todo-open.git"
+  },
+  "homepage": "https://justestif.github.io/todo-open"
+}
