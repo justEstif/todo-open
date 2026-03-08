@@ -25,15 +25,19 @@ type msgTaskEvent apiclient.TaskEvent
 type msgError struct{ err error }
 
 // waitForEvent returns a Cmd that blocks until the next SSE event arrives.
+// If the channel closes (server dropped the connection) it signals a reconnect.
 func waitForEvent(ch <-chan apiclient.TaskEvent) tea.Cmd {
 	return func() tea.Msg {
 		e, ok := <-ch
 		if !ok {
-			return nil
+			return msgEventsDropped{}
 		}
 		return msgTaskEvent(e)
 	}
 }
+
+// msgEventsDropped is sent when the SSE channel closes unexpectedly.
+type msgEventsDropped struct{}
 
 // --- model ---
 
@@ -132,6 +136,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case msgTaskEvent:
 		// Reload full list on any mutation — keeps logic simple.
 		return m, tea.Batch(m.loadTasks(), waitForEvent(m.eventsCh))
+
+	case msgEventsDropped:
+		// SSE connection dropped; reconnect.
+		m.eventsCh = nil
+		m.eventsStop = nil
+		return m, m.startEvents()
 
 	case msgError:
 		m.err = msg.err.Error()

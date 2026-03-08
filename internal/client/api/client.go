@@ -24,8 +24,9 @@ type TaskEvent struct {
 }
 
 type Client struct {
-	baseURL string
-	http    *http.Client
+	baseURL    string
+	http       *http.Client
+	httpStream *http.Client // no timeout — for long-lived SSE connections
 }
 
 func New(baseURL string) *Client {
@@ -33,6 +34,10 @@ func New(baseURL string) *Client {
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		http: &http.Client{
 			Timeout: 3 * time.Second,
+		},
+		httpStream: &http.Client{
+			// No timeout: SSE connections must stay open indefinitely.
+			// The caller's context controls cancellation.
 		},
 	}
 }
@@ -175,7 +180,7 @@ func (c *Client) SubscribeEvents(ctx context.Context) (<-chan TaskEvent, func(),
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.httpStream.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}
