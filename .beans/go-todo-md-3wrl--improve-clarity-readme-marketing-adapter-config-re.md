@@ -1,10 +1,11 @@
 ---
 # go-todo-md-3wrl
 title: 'Improve clarity: README marketing + adapter config restructuring'
-status: in-progress
+status: scrapped
 type: task
+priority: normal
 created_at: 2026-03-08T19:13:31Z
-updated_at: 2026-03-08T19:13:31Z
+updated_at: 2026-03-08T19:35:45Z
 ---
 
 Two tracks:
@@ -19,3 +20,6 @@ Track B: Config restructuring — separate adapter config into .todoopen/config.
 - [ ] Update all tests (workspace_meta_test.go, adapterconfig_test.go)
 - [ ] Rewrite README.md
 - [ ] Update docs/adapters.md
+
+## Reasons for Scrapping
+Duplicate of go-todo-md-7h4f which was completed and committed.

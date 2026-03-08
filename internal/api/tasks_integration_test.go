@@ -152,3 +152,42 @@ func doRawJSON(t *testing.T, baseURL string, method string, path string, raw str
 	}
 	return out
 }
+
+func TestCompleteEndpointAndFilter(t *testing.T) {
+	repo := memory.NewTaskRepo()
+	ids := []string{"t1", "t2"}
+	i := 0
+	svc := core.NewService(repo, func() time.Time { return time.Date(2026, 3, 5, 20, 0, 0, 0, time.UTC) }, func() string {
+		id := ids[i]
+		i++
+		return id
+	})
+	ts := httptest.NewServer(api.NewRouter(svc, adapters.Runtime{}))
+	t.Cleanup(ts.Close)
+
+	// Create open task t1.
+	created := doJSON(t, ts.URL, http.MethodPost, "/v1/tasks", map[string]string{"title": "t1 task"}, http.StatusCreated)
+	if created["id"] != "t1" {
+		t.Fatalf("unexpected id: %v", created["id"])
+	}
+
+	// Complete it via the convenience endpoint.
+	done := doJSON(t, ts.URL, http.MethodPost, "/v1/tasks/t1/complete", nil, http.StatusOK)
+	if done["status"] != "done" {
+		t.Fatalf("expected status done; got %v", done["status"])
+	}
+
+	// Filter by status=done.
+	list := doJSON(t, ts.URL, http.MethodGet, "/v1/tasks?status=done", nil, http.StatusOK)
+	items := list["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 done task; got %d", len(items))
+	}
+
+	// Filter by status=open should be empty.
+	list2 := doJSON(t, ts.URL, http.MethodGet, "/v1/tasks?status=open", nil, http.StatusOK)
+	items2 := list2["items"].([]any)
+	if len(items2) != 0 {
+		t.Fatalf("expected 0 open tasks; got %d", len(items2))
+	}
+}

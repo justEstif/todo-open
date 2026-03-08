@@ -7,6 +7,8 @@ type TaskStatus string
 type TaskPriority string
 
 const (
+	// TaskStatusPending means the task is waiting on dependencies (trigger_ids) to complete.
+	TaskStatusPending    TaskStatus = "pending"
 	TaskStatusOpen       TaskStatus = "open"
 	TaskStatusInProgress TaskStatus = "in_progress"
 	TaskStatusDone       TaskStatus = "done"
@@ -38,5 +40,11 @@ type Task struct {
 	EstimateMins int          `json:"estimate_minutes,omitempty"`
 	SortOrder    float64      `json:"sort_order,omitempty"`
 	Tags         []string     `json:"tags,omitempty"`
-	Ext          any          `json:"ext,omitempty"`
+	// TriggerIDs lists task IDs that must all reach "done" before this task transitions from pending to open.
+	TriggerIDs []string `json:"trigger_ids,omitempty"`
+	// Blocking lists task IDs that this task is blocking (outgoing dependency edges).
+	Blocking []string `json:"blocking,omitempty"`
+	// BlockedBy lists task IDs that are blocking this task (incoming dependency edges).
+	BlockedBy []string `json:"blocked_by,omitempty"`
+	Ext       any      `json:"ext,omitempty"`
 }

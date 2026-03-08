@@ -28,10 +28,11 @@ Responsibilities currently implemented:
 Implemented endpoints:
 
 - `POST /v1/tasks`
+- `GET /v1/tasks` — supports query params: `status=<status>`, `is_blocked=true`
 - `GET /v1/tasks/{id}`
-- `GET /v1/tasks`
 - `PATCH /v1/tasks/{id}`
 - `DELETE /v1/tasks/{id}`
+- `POST /v1/tasks/{id}/complete` — sets status=done and evaluates pending tasks whose trigger_ids are now all done
 
 ### B. Admin/Operations API
 
@@ -88,7 +89,6 @@ Conceptual endpoints:
 
 Conceptual endpoints:
 
-- `POST /v1/tasks/{id}/complete`
 - `POST /v1/tasks/{id}/archive`
 - `POST /v1/validate`
 - `GET /readyz`

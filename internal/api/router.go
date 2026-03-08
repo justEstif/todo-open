@@ -23,6 +23,7 @@ func NewRouter(taskService core.TaskService, adapterRuntime adapters.Runtime) ht
 	mux.HandleFunc("GET /v1/tasks/{id}", tasks.Get)
 	mux.HandleFunc("PATCH /v1/tasks/{id}", tasks.Update)
 	mux.HandleFunc("DELETE /v1/tasks/{id}", tasks.Delete)
+	mux.HandleFunc("POST /v1/tasks/{id}/complete", tasks.Complete)
 
 	mux.Handle("GET /static/", http.StripPrefix("/static/", assets))
 	mux.Handle("GET /", index)

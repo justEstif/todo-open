@@ -21,7 +21,7 @@ Each task line in `tasks.jsonl` is a complete current-state object (not an event
 
 - `id` (string): globally unique task id (UUIDv7 preferred)
 - `title` (string): short task text, non-empty
-- `status` (enum): `"open" | "in_progress" | "done" | "archived"`
+- `status` (enum): `"pending" | "open" | "in_progress" | "done" | "archived"`
 - `created_at` (string, RFC3339 UTC timestamp)
 - `updated_at` (string, RFC3339 UTC timestamp)
 
@@ -40,6 +40,9 @@ Each task line in `tasks.jsonl` is a complete current-state object (not an event
 - `estimate_minutes` (integer >= 0)
 - `sort_order` (number)
 - `version` (integer >= 1; increments on each mutation)
+- `trigger_ids` (string[]): task IDs that must all reach `done` before this task transitions from `pending` to `open`
+- `blocking` (string[]): task IDs that this task is blocking (outgoing dependency edges)
+- `blocked_by` (string[]): task IDs that are blocking this task (incoming dependency edges)
 
 ### Extension namespace
 
@@ -69,6 +72,7 @@ Example:
 
 Allowed transitions:
 
+- `pending -> open` (automatic, when all trigger_ids reach done)
 - `open -> in_progress | done | archived`
 - `in_progress -> open | done | archived`
 - `done -> open | archived`

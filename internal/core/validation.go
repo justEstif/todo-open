@@ -29,6 +29,7 @@ var coreFields = map[string]struct{}{
 	"description": {}, "project": {}, "tags": {}, "priority": {}, "due_at": {},
 	"started_at": {}, "completed_at": {}, "deleted_at": {}, "parent_id": {},
 	"assignee": {}, "estimate_minutes": {}, "sort_order": {}, "version": {}, "ext": {},
+	"trigger_ids": {}, "blocking": {}, "blocked_by": {},
 }
 
 func ValidateTaskJSONL(r io.Reader, mode ValidationMode) ([]ValidationIssue, error) {
@@ -70,9 +71,9 @@ func validateTaskRecord(record map[string]any, line int, raw string, mode Valida
 
 	if status != "" {
 		switch TaskStatus(status) {
-		case TaskStatusOpen, TaskStatusInProgress, TaskStatusDone, TaskStatusArchived:
+		case TaskStatusPending, TaskStatusOpen, TaskStatusInProgress, TaskStatusDone, TaskStatusArchived:
 		default:
-			issues = append(issues, ValidationIssue{Line: line, Field: "status", Message: "must be one of open|in_progress|done|archived", Context: raw})
+			issues = append(issues, ValidationIssue{Line: line, Field: "status", Message: "must be one of pending|open|in_progress|done|archived", Context: raw})
 		}
 	}
 

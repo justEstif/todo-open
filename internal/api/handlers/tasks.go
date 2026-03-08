@@ -43,12 +43,30 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) List(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.svc.ListTasks(r.Context())
+	q := r.URL.Query()
+	filter := core.ListFilter{}
+	if s := q.Get("status"); s != "" {
+		filter.Status = core.TaskStatus(s)
+	}
+	if q.Get("is_blocked") == "true" {
+		filter.IsBlocked = true
+	}
+	tasks, err := h.svc.ListTasks(r.Context(), filter)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": tasks})
+}
+
+func (h *TaskHandler) Complete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	task, err := h.svc.CompleteTask(r.Context(), id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
 }
 
 func (h *TaskHandler) Get(w http.ResponseWriter, r *http.Request) {
