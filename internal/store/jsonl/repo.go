@@ -111,6 +111,9 @@ func (r *TaskRepo) Update(_ context.Context, task core.Task) (core.Task, error) 
 				if tasks[i].DeletedAt != nil {
 					return nil, core.ErrNotFound
 				}
+				if task.Version != tasks[i].Version+1 {
+					return nil, core.ErrConflict
+				}
 				tasks[i] = task
 				return tasks, nil
 			}

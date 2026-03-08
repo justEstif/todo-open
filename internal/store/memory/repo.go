@@ -55,6 +55,9 @@ func (r *TaskRepo) Update(_ context.Context, task core.Task) (core.Task, error) 
 	if !ok || existing.DeletedAt != nil {
 		return core.Task{}, core.ErrNotFound
 	}
+	if task.Version != existing.Version+1 {
+		return core.Task{}, core.ErrConflict
+	}
 	r.tasks[task.ID] = task
 	return task, nil
 }
