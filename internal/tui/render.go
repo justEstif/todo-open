@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	listPaneFraction   = 0.45 // fraction of terminal width for list in split view
-	detailMinWidth     = 30
-	borderOverhead     = 4 // 2 borders × 2 sides
-	verticalOverhead   = 6 // header + filter bar + key bar + borders
-	createBarHeight    = 2
+	listPaneFraction = 0.45 // fraction of terminal width for list in split view
+	detailMinWidth   = 30
+	borderOverhead   = 4 // 2 borders × 2 sides
+	verticalOverhead = 6 // header + filter bar + key bar + borders
+	createBarHeight  = 2
 )
 
 // taskSymbol returns the bullet symbol for a task's status.
@@ -56,10 +56,7 @@ func renderList(tasks []core.Task, selected int, width, height int, filter strin
 	sb.WriteString("\n")
 
 	// Task rows — allow height minus filter line minus create hint
-	maxRows := height - 2
-	if maxRows < 1 {
-		maxRows = 1
-	}
+	maxRows := max(height-2, 1)
 
 	// Window the list around the cursor
 	start := 0
@@ -75,10 +72,7 @@ func renderList(tasks []core.Task, selected int, width, height int, filter strin
 
 		title := t.Title
 		// Truncate title to fit
-		maxTitle := width - 20
-		if maxTitle < 8 {
-			maxTitle = 8
-		}
+		maxTitle := max(width-20, 8)
 		if len(title) > maxTitle {
 			title = title[:maxTitle-1] + "…"
 		}

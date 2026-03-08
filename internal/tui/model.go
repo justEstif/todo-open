@@ -47,25 +47,25 @@ type Model struct {
 	eventsCh   <-chan apiclient.TaskEvent
 	eventsStop func()
 
-	tasks      []core.Task
-	tasksByID  map[string]core.Task
+	tasks     []core.Task
+	tasksByID map[string]core.Task
 
-	view     view
-	cursor   int    // index into tasks
-	filter   string // "all", "open", "done"
+	view   view
+	cursor int    // index into tasks
+	filter string // "all", "open", "done"
 
 	// detail dep navigation
-	depCursor    int  // cursor within deps list in detail pane
-	depFocused   bool // whether dep list has focus
+	depCursor  int  // cursor within deps list in detail pane
+	depFocused bool // whether dep list has focus
 
 	// create bar
 	creating  bool
 	createBuf string
 
 	// edit bar
-	editing  bool
-	editBuf  string
-	editID   string // ID of the task being edited
+	editing bool
+	editBuf string
+	editID  string // ID of the task being edited
 
 	// layout
 	width  int
@@ -462,7 +462,7 @@ func (m Model) viewListLayout(header string, innerW, innerH int) string {
 		listContent,
 		footer,
 	)
-	return styleBorder.Width(m.width-2).Render(body)
+	return styleBorder.Width(m.width - 2).Render(body)
 }
 
 func (m Model) viewDetailLayout(header string, innerW, innerH int) string {
@@ -497,12 +497,5 @@ func (m Model) viewDetailLayout(header string, innerW, innerH int) string {
 		split,
 		detailFooter,
 	)
-	return styleBorder.Width(m.width-2).Render(body)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+	return styleBorder.Width(m.width - 2).Render(body)
 }

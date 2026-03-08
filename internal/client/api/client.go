@@ -200,8 +200,8 @@ func (c *Client) SubscribeEvents(ctx context.Context) (<-chan TaskEvent, func(),
 		var dataLine string
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.HasPrefix(line, "data: ") {
-				dataLine = strings.TrimPrefix(line, "data: ")
+			if after, ok := strings.CutPrefix(line, "data: "); ok {
+				dataLine = after
 			} else if line == "" && dataLine != "" {
 				var e TaskEvent
 				if err := json.Unmarshal([]byte(dataLine), &e); err == nil {
