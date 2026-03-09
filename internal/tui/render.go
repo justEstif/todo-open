@@ -224,7 +224,7 @@ func renderEdit(input string, width int) string {
 func renderDeleteConfirm(width int) string {
 	prompt := lipgloss.NewStyle().Foreground(colorCritical).Render("delete this task? ") +
 		keyHint("y", "yes") + "  " + keyHint("any", "cancel")
-	return lipgloss.NewStyle().Width(width).Render(" " + prompt) + "\n"
+	return lipgloss.NewStyle().Width(width).Render(" "+prompt) + "\n"
 }
 
 // renderKeyBar renders the bottom key hint bar for the given view.
