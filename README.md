@@ -17,6 +17,9 @@ npm install -g @justestif/todo-open
 # mise
 mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest && mise reshim
 
+# mise (update to latest)
+mise cache clear && mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest && mise reshim
+
 # source
 git clone https://github.com/justEstif/todo-open.git
 cd todo-open && go build ./cmd/todoopen ./cmd/todoopen-server

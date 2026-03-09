@@ -363,7 +363,12 @@
         <div id="tab-install-mise" class="tab-panel">
           <div class="terminal" style="border-radius: 0;">
             <button class="copy-btn" data-copy="mise use -g go:github.com/justEstif/todo-open/cmd/todoopen@latest&#10;mise reshim">copy</button>
-            <pre><span class="prompt">$</span> <span class="cmd">mise use -g</span> go:github.com/justEstif/todo-open/cmd/todoopen@latest
+            <pre><span class="comment"># install</span>
+<span class="prompt">$</span> <span class="cmd">mise use -g</span> go:github.com/justEstif/todo-open/cmd/todoopen@latest
+<span class="prompt">$</span> <span class="cmd">mise reshim</span>
+
+<span class="comment"># update to latest (clear cache first)</span>
+<span class="prompt">$</span> <span class="cmd">mise cache clear</span> && <span class="cmd">mise use -g</span> go:github.com/justEstif/todo-open/cmd/todoopen@latest
 <span class="prompt">$</span> <span class="cmd">mise reshim</span></pre>
           </div>
         </div>
