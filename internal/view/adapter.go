@@ -2,16 +2,9 @@ package view
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/justEstif/todo-open/internal/adapterregistry"
 	"github.com/justEstif/todo-open/internal/core"
-)
-
-var (
-	ErrAdapterNameRequired = adapterregistry.ErrAdapterNameRequired
-	ErrAdapterExists       = adapterregistry.ErrAdapterExists
-	ErrAdapterNotFound     = adapterregistry.ErrAdapterNotFound
 )
 
 // Adapter renders tasks for a specific view target.
@@ -20,26 +13,17 @@ type Adapter interface {
 	RenderTasks(ctx context.Context, tasks []core.Task) ([]byte, error)
 }
 
-// Registry stores runtime view adapters by name.
-type Registry struct {
-	reg *adapterregistry.Registry[Adapter]
-}
+// Re-export sentinel errors for package consumers and tests.
+var (
+	ErrAdapterNameRequired = adapterregistry.ErrAdapterNameRequired
+	ErrAdapterExists       = adapterregistry.ErrAdapterExists
+	ErrAdapterNotFound     = adapterregistry.ErrAdapterNotFound
+)
 
+// Registry is a named-adapter registry for view adapters.
+type Registry = adapterregistry.Registry[Adapter]
+
+// NewRegistry returns a ready-to-use view adapter registry.
 func NewRegistry() *Registry {
-	return &Registry{reg: adapterregistry.New[Adapter]()}
-}
-
-func (r *Registry) Register(adapter Adapter) error {
-	if adapter == nil {
-		return fmt.Errorf("nil adapter: %w", ErrAdapterNameRequired)
-	}
-	return r.reg.Register(adapter)
-}
-
-func (r *Registry) Get(name string) (Adapter, error) {
-	return r.reg.Get(name)
-}
-
-func (r *Registry) Names() []string {
-	return r.reg.Names()
+	return adapterregistry.New[Adapter]()
 }

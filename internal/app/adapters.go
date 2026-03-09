@@ -9,20 +9,20 @@ import (
 	viewjson "github.com/justEstif/todo-open/internal/view/json"
 )
 
-// NewViewRegistry loads built-in view adapters.
+// NewViewRegistry returns a registry pre-loaded with built-in view adapters.
 func NewViewRegistry() (*view.Registry, error) {
-	registry := view.NewRegistry()
-	if err := registry.Register(viewjson.NewAdapter()); err != nil {
+	r := view.NewRegistry()
+	if err := r.Register(viewjson.NewAdapter()); err != nil {
 		return nil, fmt.Errorf("register json view adapter: %w", err)
 	}
-	return registry, nil
+	return r, nil
 }
 
-// NewSyncRegistry loads built-in sync adapters.
+// NewSyncRegistry returns a registry pre-loaded with built-in sync adapters.
 func NewSyncRegistry() (*syncadapter.Registry, error) {
-	registry := syncadapter.NewRegistry()
-	if err := registry.Register(noop.NewAdapter()); err != nil {
+	r := syncadapter.NewRegistry()
+	if err := r.Register(noop.NewAdapter()); err != nil {
 		return nil, fmt.Errorf("register noop sync adapter: %w", err)
 	}
-	return registry, nil
+	return r, nil
 }

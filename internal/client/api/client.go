@@ -12,16 +12,11 @@ import (
 	"time"
 
 	"github.com/justEstif/todo-open/internal/core"
+	"github.com/justEstif/todo-open/internal/events"
 )
 
-// TaskEvent is a task mutation event received over the SSE stream.
-type TaskEvent struct {
-	Type      string           `json:"type"`
-	Task      *core.Task       `json:"task,omitempty"`
-	OldStatus *core.TaskStatus `json:"old_status,omitempty"`
-	NewStatus *core.TaskStatus `json:"new_status,omitempty"`
-	At        time.Time        `json:"at"`
-}
+// TaskEvent is an alias for events.Event, the canonical task mutation event type.
+type TaskEvent = events.Event
 
 type Client struct {
 	baseURL    string
@@ -56,116 +51,47 @@ func (c *Client) Health() error {
 }
 
 func (c *Client) CreateTask(title string) (core.Task, error) {
-	payload := map[string]string{"title": title}
-	resp, err := c.doJSON(http.MethodPost, "/v1/tasks", payload)
-	if err != nil {
-		return core.Task{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusCreated {
-		return core.Task{}, decodeAPIError(resp)
-	}
 	var out core.Task
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return core.Task{}, err
-	}
-	return out, nil
+	err := c.do(http.MethodPost, "/v1/tasks", map[string]string{"title": title}, http.StatusCreated, &out)
+	return out, err
 }
 
 func (c *Client) ListTasks() ([]core.Task, error) {
-	resp, err := c.doJSON(http.MethodGet, "/v1/tasks", nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, decodeAPIError(resp)
-	}
 	var out struct {
 		Items []core.Task `json:"items"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := c.do(http.MethodGet, "/v1/tasks", nil, http.StatusOK, &out); err != nil {
 		return nil, err
 	}
 	return out.Items, nil
 }
 
 func (c *Client) GetTask(id string) (core.Task, error) {
-	resp, err := c.doJSON(http.MethodGet, "/v1/tasks/"+id, nil)
-	if err != nil {
-		return core.Task{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return core.Task{}, decodeAPIError(resp)
-	}
 	var out core.Task
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return core.Task{}, err
-	}
-	return out, nil
+	err := c.do(http.MethodGet, "/v1/tasks/"+id, nil, http.StatusOK, &out)
+	return out, err
 }
 
 func (c *Client) UpdateTask(id string, title string) (core.Task, error) {
-	payload := map[string]string{"title": title}
-	resp, err := c.doJSON(http.MethodPatch, "/v1/tasks/"+id, payload)
-	if err != nil {
-		return core.Task{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return core.Task{}, decodeAPIError(resp)
-	}
 	var out core.Task
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return core.Task{}, err
-	}
-	return out, nil
+	err := c.do(http.MethodPatch, "/v1/tasks/"+id, map[string]string{"title": title}, http.StatusOK, &out)
+	return out, err
 }
 
 func (c *Client) CompleteTask(id string) (core.Task, error) {
-	resp, err := c.doJSON(http.MethodPost, "/v1/tasks/"+id+"/complete", struct{}{})
-	if err != nil {
-		return core.Task{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return core.Task{}, decodeAPIError(resp)
-	}
 	var out core.Task
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return core.Task{}, err
-	}
-	return out, nil
+	err := c.do(http.MethodPost, "/v1/tasks/"+id+"/complete", struct{}{}, http.StatusOK, &out)
+	return out, err
 }
 
 func (c *Client) PatchTaskStatus(id, status string) (core.Task, error) {
-	payload := map[string]string{"status": status}
-	resp, err := c.doJSON(http.MethodPatch, "/v1/tasks/"+id, payload)
-	if err != nil {
-		return core.Task{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return core.Task{}, decodeAPIError(resp)
-	}
 	var out core.Task
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return core.Task{}, err
-	}
-	return out, nil
+	err := c.do(http.MethodPatch, "/v1/tasks/"+id, map[string]string{"status": status}, http.StatusOK, &out)
+	return out, err
 }
 
 func (c *Client) DeleteTask(id string) error {
-	resp, err := c.doJSON(http.MethodDelete, "/v1/tasks/"+id, nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		return decodeAPIError(resp)
-	}
-	return nil
+	return c.do(http.MethodDelete, "/v1/tasks/"+id, nil, http.StatusNoContent, nil)
 }
 
 // SubscribeEvents connects to the SSE event stream and returns a channel of
@@ -216,6 +142,23 @@ func (c *Client) SubscribeEvents(ctx context.Context) (<-chan TaskEvent, func(),
 	}()
 
 	return ch, cancel, nil
+}
+
+// do executes an API request, checks the expected status, and decodes the response body into dst.
+// If dst is nil, no body decoding is performed.
+func (c *Client) do(method, path string, payload any, expectStatus int, dst any) error {
+	resp, err := c.doJSON(method, path, payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != expectStatus {
+		return decodeAPIError(resp)
+	}
+	if dst != nil {
+		return json.NewDecoder(resp.Body).Decode(dst)
+	}
+	return nil
 }
 
 func (c *Client) doJSON(method string, path string, payload any) (*http.Response, error) {

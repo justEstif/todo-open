@@ -240,7 +240,8 @@ func (s *Service) PatchStatus(ctx context.Context, id string, status TaskStatus)
 }
 
 // PatchTask applies a partial update. Status transitions are idempotent;
-// title updates require If-Match when supplied. Both can be set together.
+// title updates require If-Match when supplied. Both can be set together
+// in a single atomic write.
 func (s *Service) PatchTask(ctx context.Context, id string, patch TaskPatch, ifMatch *int) (Task, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
@@ -251,29 +252,46 @@ func (s *Service) PatchTask(ctx context.Context, id string, patch TaskPatch, ifM
 		return Task{}, err
 	}
 
-	// Apply status change (idempotent).
-	if patch.Status != "" && task.Status != patch.Status {
-		oldStatus := task.Status
-		now := s.nowFn().UTC()
+	statusChanged := patch.Status != "" && task.Status != patch.Status
+	titleChanged := patch.Title != "" && task.Title != strings.TrimSpace(patch.Title)
+
+	if !statusChanged && !titleChanged {
+		return task, nil
+	}
+
+	// Validate If-Match when title changes.
+	if titleChanged {
+		title := strings.TrimSpace(patch.Title)
+		if title == "" {
+			return Task{}, fmt.Errorf("title is required: %w", ErrInvalidInput)
+		}
+		if ifMatch != nil && task.Version != *ifMatch {
+			return Task{}, fmt.Errorf("ETag mismatch; resource was modified: %w", ErrConflict)
+		}
+		task.Title = title
+	}
+
+	var oldStatus TaskStatus
+	if statusChanged {
+		oldStatus = task.Status
 		task.Status = patch.Status
-		task.UpdatedAt = now
-		task.Version++
-		task, err = s.repo.Update(ctx, task)
-		if err != nil {
-			return Task{}, err
-		}
-		s.emitMutationEvent("task.status_changed", &task, &oldStatus, &patch.Status)
 	}
 
-	// Apply title change (requires If-Match).
-	if patch.Title != "" {
-		task, err = s.applyTitleUpdate(ctx, task, patch.Title, ifMatch)
-		if err != nil {
-			return Task{}, err
-		}
+	task.UpdatedAt = s.nowFn().UTC()
+	task.Version++
+	result, err := s.repo.Update(ctx, task)
+	if err != nil {
+		return Task{}, err
 	}
 
-	return task, nil
+	if statusChanged {
+		s.emitMutationEvent("task.status_changed", &result, &oldStatus, &patch.Status)
+	}
+	if titleChanged {
+		s.emitMutationEvent("task.updated", &result, nil, nil)
+	}
+
+	return result, nil
 }
 
 func (s *Service) UpdateTask(ctx context.Context, id string, title string, ifMatch *int) (Task, error) {
