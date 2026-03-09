@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -215,6 +216,10 @@ func runTui(args []string, stdout io.Writer, stderr io.Writer) int {
 	url := *baseURL
 	if url == "" {
 		url = "http://" + *addr
+
+		// Suppress server request logging so it doesn't corrupt the TUI.
+		log.SetOutput(io.Discard)
+
 		srv, err := app.NewServer(*addr)
 		if err != nil {
 			fmt.Fprintf(stderr, "server setup failed: %v\n", err)
