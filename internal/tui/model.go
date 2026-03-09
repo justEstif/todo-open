@@ -67,6 +67,10 @@ type Model struct {
 	editBuf string
 	editID  string // ID of the task being edited
 
+	// delete confirmation
+	confirmDelete bool
+	deleteID      string
+
 	// layout
 	width  int
 	height int
@@ -186,7 +190,10 @@ func (m *Model) setTasks(tasks []core.Task) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Input bars capture all input first.
+	// Input bars and confirmations capture all input first.
+	if m.confirmDelete {
+		return m.handleDeleteConfirmKey(msg)
+	}
 	if m.creating {
 		return m.handleCreateKey(msg)
 	}
@@ -254,6 +261,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		if len(m.tasks) > 0 {
 			return m, m.toggleDone()
+		}
+
+	case "x":
+		if len(m.tasks) > 0 {
+			t := m.tasks[m.cursor]
+			m.confirmDelete = true
+			m.deleteID = t.ID
 		}
 
 	case "a":
@@ -332,6 +346,34 @@ func (m Model) handleEditKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m Model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		id := m.deleteID
+		m.confirmDelete = false
+		m.deleteID = ""
+		return m, m.deleteTask(id)
+	default:
+		m.confirmDelete = false
+		m.deleteID = ""
+	}
+	return m, nil
+}
+
+func (m Model) deleteTask(id string) tea.Cmd {
+	return func() tea.Msg {
+		err := m.client.DeleteTask(id)
+		if err != nil {
+			return msgError{err}
+		}
+		tasks, err := m.client.ListTasks()
+		if err != nil {
+			return msgError{err}
+		}
+		return msgTasksLoaded(tasks)
+	}
 }
 
 func (m Model) editTask(id, title string) tea.Cmd {
@@ -449,6 +491,8 @@ func (m Model) viewListLayout(header string, innerW, innerH int) string {
 
 	var footer string
 	switch {
+	case m.confirmDelete:
+		footer = renderDeleteConfirm(innerW)
 	case m.creating:
 		footer = renderCreate(m.createBuf, innerW)
 	case m.editing:
@@ -486,6 +530,8 @@ func (m Model) viewDetailLayout(header string, innerW, innerH int) string {
 
 	var detailFooter string
 	switch {
+	case m.confirmDelete:
+		detailFooter = renderDeleteConfirm(innerW)
 	case m.editing:
 		detailFooter = renderEdit(m.editBuf, innerW)
 	default:

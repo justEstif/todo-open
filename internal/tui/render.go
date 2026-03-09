@@ -220,6 +220,13 @@ func renderEdit(input string, width int) string {
 	return renderInputBar("edit title", input, width)
 }
 
+// renderDeleteConfirm renders the delete confirmation prompt.
+func renderDeleteConfirm(width int) string {
+	prompt := lipgloss.NewStyle().Foreground(colorCritical).Render("delete this task? ") +
+		keyHint("y", "yes") + "  " + keyHint("any", "cancel")
+	return lipgloss.NewStyle().Width(width).Render(" " + prompt) + "\n"
+}
+
 // renderKeyBar renders the bottom key hint bar for the given view.
 func renderKeyBar(v view, width int) string {
 	var hints string
@@ -229,12 +236,14 @@ func renderKeyBar(v view, width int) string {
 			keyHint("e", "edit") + "  " +
 			keyHint("enter", "detail") + "  " +
 			keyHint("d", "done") + "  " +
+			keyHint("x", "delete") + "  " +
 			keyHint("a/o/D", "filter") + "  " +
 			keyHint("q", "quit")
 	case viewDetail:
 		hints = keyHint("esc", "back") + "  " +
 			keyHint("e", "edit") + "  " +
 			keyHint("d", "done") + "  " +
+			keyHint("x", "delete") + "  " +
 			keyHint("tab", "deps") + "  " +
 			keyHint("enter", "jump") + "  " +
 			keyHint("q", "quit")
